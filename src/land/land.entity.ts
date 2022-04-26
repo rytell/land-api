@@ -1,9 +1,10 @@
-import { Column, Entity, ManyToMany, JoinTable, PrimaryColumn } from 'typeorm';
+import { Column, Entity, Unique } from 'typeorm';
 import { BaseEntity } from '../base-entity';
 
 @Entity('lands')
+@Unique(["land_id","collection"])
 export class Land extends BaseEntity {
-    @Column({ type: 'int', nullable: false, unique: true })
+    @Column({ type: 'int', nullable: false })
     land_id: number;
 
     @Column({nullable: false })
@@ -12,35 +13,23 @@ export class Land extends BaseEntity {
     @Column({ nullable: false })
     image: string;
 
-    @Column({ nullable: false })
-    name: string;
-
-    @Column({ type: 'float', nullable: false })
-    rarity: number;
-
-    @Column({ nullable: false })
-    character: string;
-
     @Column({ type: 'int', nullable: false })
-    tier: number;
-
-    @Column({ nullable: false })
-    title: string;
-
-    @Column({ type: 'int', nullable: false })
-    strength: number;
-
-    @Column({ nullable: false })
-    background: string;
-
-    @Column({ type: 'int', nullable: false })
-    cunning: number;
-
-    @Column({ type: 'int', nullable: false })
-    will: number;
-
-    @Column({ type: 'int', nullable: false, unique: true })
     hero_number: number;
+
+    @Column({ nullable: false })
+    type: string;
+
+    @Column({ nullable: false })
+    resource_a: string;
+
+    @Column({ nullable: false })
+    resource_a_value: number;
+
+    @Column({ nullable: false })
+    resource_b: string;
+
+    @Column({ nullable: false })
+    resource_b_value: number;
 
     @Column({ nullable: false })
     staked: boolean;
