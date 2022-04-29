@@ -64,4 +64,9 @@ export class LandController {
 
         return 'hello world';
     }
+
+    @Get()
+    test(): string {
+        return this.landService.test();
+    }
 }
