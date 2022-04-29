@@ -5,6 +5,9 @@ import { firstValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { CreateLandDto } from './dto/create-land';
 import { Land } from './land.entity';
+import { SimulateClaimDto } from './dto/simulate-claim';
+import { RPC_URL, STAKING_LAND } from 'src/constants';
+import stakeLandAbi from '../constants/abis/stakeLands.json';
 
 @Injectable()
 export class LandService {
@@ -15,7 +18,6 @@ export class LandService {
     ) {}
 
     async create(createLandDto: CreateLandDto): Promise<Land> | undefined {
-
         const validateErrors = this.validateLandDTO(createLandDto);
         if (validateErrors.length > 0) {
             throw validateErrors;
@@ -23,14 +25,11 @@ export class LandService {
 
         const landDB = await this.landsRepository.findOne({
             land_id: createLandDto.landId,
-            collection: "collection1"
+            collection: 'collection1',
         });
 
         if (landDB) {
-            if (
-                landDB?.lastStaked < "1" ||
-                landDB?.lastUnstaked < "1"
-            ) {
+            if (landDB?.lastStaked < '1' || landDB?.lastUnstaked < '1') {
                 const land: Land = {
                     ...landDB,
                     staked: false,
@@ -70,7 +69,7 @@ export class LandService {
         });
         const land = new Land();
         land.land_id = createLandDto.landId;
-        land.collection = "collection1";
+        land.collection = 'collection1';
         land.type = response.data.attributes[1].trait_type;
         land.resource_a = response.data.attributes[2].trait_type;
         land.resource_a_value = response.data.attributes[2].value;
@@ -98,5 +97,47 @@ export class LandService {
             return 'Error, staker required';
         }
         return '';
+    }
+
+    async simulateClaim(simulateClaimDto: SimulateClaimDto): Promise<any> {
+        let lands: Land[] = [];
+        let accumulatedIron = 0;
+        let accumulatedStone = 0;
+        let accumulatedWood = 0;
+        let accumulatedWheat = 0;
+
+        let estimatedGas = 0;
+    }
+
+    async claim(): Promise<any> {}
+
+    async simulateLevelUp(simulateClaimDto: SimulateClaimDto): Promise<any> {
+        let lands: Land[] = [];
+        let accumulatedIron = 0;
+        let accumulatedStone = 0;
+        let accumulatedWood = 0;
+        let accumulatedWheat = 0;
+
+        let estimatedGas = 0;
+    }
+
+    async levelUp(): Promise<any> {}
+
+    async getStakeLandContract(caller: string) {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const Web3 = require('web3');
+        const web3 = new Web3(
+            new Web3.providers.HttpProvider(RPC_URL[process.env.CHAIN]),
+        );
+
+        const stakeLandsContract = new web3.eth.Contract(
+            stakeLandAbi,
+            STAKING_LAND[process.env.CHAIN || 43113],
+        );
+
+        // return await stakeLandsContract.methods
+        //     .getStakedHeros(caller)
+        //     .call({ from: caller });
+        return stakeLandsContract;
     }
 }
