@@ -7,7 +7,7 @@ import { CreateLandDto } from './dto/create-land';
 import { Land } from './land.entity';
 import { SimulateClaimDto } from './dto/simulate-claim';
 import { RPC_URL, STAKING_LAND } from 'src/constants';
-import stakeLandAbi from '../constants/abis/stakeLands.json';
+import * as stakeLandAbi from '../constants/abis/stakeLands.json';
 
 @Injectable()
 export class LandService {
@@ -123,7 +123,7 @@ export class LandService {
 
     async levelUp(): Promise<any> {}
 
-    async getStakeLandContract(caller: string) {
+    async getStakeLandContract() {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const Web3 = require('web3');
         const web3 = new Web3(
@@ -135,9 +135,94 @@ export class LandService {
             STAKING_LAND[process.env.CHAIN || 43113],
         );
 
-        // return await stakeLandsContract.methods
-        //     .getStakedHeros(caller)
-        //     .call({ from: caller });
         return stakeLandsContract;
+    }
+
+    async getHeroLands({
+        owner,
+        hero,
+    }: {
+        owner: string;
+        hero: number;
+    }): Promise<any[]> {
+        const stakeLandsContract = await this.getStakeLandContract();
+        const rawResponse: any = await stakeLandsContract.methods
+            .getHeroLands(owner, hero)
+            .call({ from: process.env.GAME_EMISSIONS_FUND_ADDRESS });
+        const keys = ['landId', 'collection', 'staked', 'level'];
+        const heroLands = [];
+        for (let index = 0; index < rawResponse[0].length; index++) {
+            const base = {};
+            for (let innerIndex = 0; innerIndex < keys.length; innerIndex++) {
+                base[`${keys[innerIndex]}`] = rawResponse[innerIndex][index];
+            }
+            heroLands.push(base);
+        }
+        return heroLands;
+    }
+
+    async getStakedHeros({ owner }: { owner: string }): Promise<any> {
+        const stakeLandsContract = await this.getStakeLandContract();
+        const heros = [];
+        let index = 0;
+        while (true) {
+            try {
+                const rawResponse: any = await stakeLandsContract.methods
+                    .stakedHeros(owner, index)
+                    .call({ from: process.env.GAME_EMISSIONS_FUND_ADDRESS });
+                index++;
+                heros.push(rawResponse);
+            } catch (error) {
+                console.log(error);
+                break;
+            }
+        }
+        return heros;
+    }
+
+    async getStakedLands({ owner }: { owner: string }): Promise<any> {
+        const stakeLandsContract = await this.getStakeLandContract();
+        const heros = [];
+        let index = 0;
+        while (true) {
+            try {
+                const rawResponse: any = await stakeLandsContract.methods
+                    .stakedLands(owner, index)
+                    .call({ from: process.env.GAME_EMISSIONS_FUND_ADDRESS });
+                index++;
+                heros.push(rawResponse);
+            } catch (error) {
+                console.log(error);
+                break;
+            }
+        }
+        return heros;
+    }
+
+    async getMintResourceEstimation({
+        to,
+        amounts,
+        resources,
+    }: {
+        to: string;
+        amounts: number[];
+        resources: string[];
+    }) {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const Web3 = require('web3');
+        const stakeLandContract = await this.getStakeLandContract();
+        const utils = Web3.utils;
+        const estimation = await stakeLandContract.methods
+            .mintResources(
+                resources,
+                amounts.map((amount) =>
+                    utils.toWei(amount.toFixed(7).toString()),
+                ),
+                to,
+            )
+            .estimateGas({
+                from: process.env.GAME_EMISSIONS_FUND_ADDRESS,
+            });
+        return estimation * 1.2;
     }
 }
