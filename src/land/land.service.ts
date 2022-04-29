@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { firstValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
+import * as fs from 'fs'
 import { CreateLandDto } from './dto/create-land';
 import { Land } from './land.entity';
 import { SimulateClaimDto } from './dto/simulate-claim';
@@ -56,9 +57,10 @@ export class LandService {
 
     async getLandMetadata(createLandDto: CreateLandDto): Promise<Land> {
         const landAttr: any = {};
+        const collectionHash = this.getCollectionHash(createLandDto.collection)
         const response = await firstValueFrom(
             this.httpService.get(
-                `https://rytell.mypinata.cloud/ipfs/QmbP1NySANMBLLj9qniEXtgPxoA8E3B5EkhuF2BQcHMJwj/${createLandDto.landId}.json`,
+                `https://rytell.mypinata.cloud/ipfs/${collectionHash}/${createLandDto.landId}.json`,
             ),
         );
 
@@ -124,20 +126,34 @@ export class LandService {
     async levelUp(): Promise<any> {}
 
     async getStakeLandContract(caller: string) {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const Web3 = require('web3');
-        const web3 = new Web3(
-            new Web3.providers.HttpProvider(RPC_URL[process.env.CHAIN]),
-        );
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const Web3 = require('web3');
+            const web3 = new Web3(
+                new Web3.providers.HttpProvider(RPC_URL[process.env.CHAIN]),
+            );
 
-        const stakeLandsContract = new web3.eth.Contract(
-            stakeLandAbi,
-            STAKING_LAND[process.env.CHAIN || 43113],
-        );
+            const stakeLandsContract = new web3.eth.Contract(
+                stakeLandAbi,
+                STAKING_LAND[process.env.CHAIN || 43113],
+            );
 
-        // return await stakeLandsContract.methods
-        //     .getStakedHeros(caller)
-        //     .call({ from: caller });
-        return stakeLandsContract;
+            // return await stakeLandsContract.methods
+            //     .getStakedHeros(caller)
+            //     .call({ from: caller });
+            return stakeLandsContract;
+    }
+
+    getCollectionHash(id: number): string {
+        const rawdata = fs.readFileSync('collections.json');
+        const collections = JSON.parse(rawdata.toString());
+        return collections[id].hash
+    }
+
+    test(): string {
+        const rawdata = fs.readFileSync('basicEmissions.json');
+        const basicEmissions = JSON.parse(rawdata.toString());
+        //basicEmissions['wood'][0]
+        console.log(basicEmissions)
+        return ''
     }
 }

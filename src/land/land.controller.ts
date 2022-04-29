@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { LandService } from './land.service';
 import { Land } from './land.entity';
 import { CreateLandDto } from './dto/create-land';
@@ -14,6 +14,7 @@ export class LandController {
         return this.landService.create(createLandDto);
     }
 
+<<<<<<< Updated upstream
     @Post()
     simulateClaim(@Body() body): Promise<any> {
         const simulateClaimDto: SimulateClaimDto = body.simulateClaimDto;
@@ -21,4 +22,10 @@ export class LandController {
     }
 
 
+=======
+    @Get()
+    test(): string {
+        return this.landService.test();
+    }
+>>>>>>> Stashed changes
 }
