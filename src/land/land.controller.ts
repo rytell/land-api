@@ -21,7 +21,7 @@ export class LandController {
         return this.landService.create(createLandDto);
     }
 
-    @Post()
+    @Post('simulate-claim')
     simulateClaim(@Body() body): Promise<any> {
         const simulateClaimDto: SimulateClaimDto = body.simulateClaimDto;
         return this.landService.simulateClaim(simulateClaimDto);

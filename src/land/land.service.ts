@@ -102,13 +102,58 @@ export class LandService {
     }
 
     async simulateClaim(simulateClaimDto: SimulateClaimDto): Promise<any> {
+        const heroTypeAndLand = await this.getHeroTypeAndLand(simulateClaimDto.hero)
         let lands: Land[] = [];
         let accumulatedIron = 0;
         let accumulatedStone = 0;
         let accumulatedWood = 0;
         let accumulatedWheat = 0;
+        simulateClaimDto.lands.forEach(async land => {
+            const landDB = await this.landsRepository.findOne({
+                land_id: land.landId,
+                collection: land.collection,
+            });
+            const firstResource = this.cleanLandResource(landDB.resource_a)
+            const secondResource = this.cleanLandResource(landDB.resource_b)
+            const firstResourceBasicEmission = this.getBasicEmission(firstResource, 1)
+            const secondResourceBasicEmission = this.getBasicEmission(secondResource, 1)
+            const heroFirstEmission = this.getHeroEmission(heroTypeAndLand, firstResourceBasicEmission);
+            const heroSecondEmission = this.getHeroEmission(heroTypeAndLand, secondResourceBasicEmission);
+            console.log(firstResource, heroFirstEmission)
+            console.log(secondResource, heroSecondEmission)
+        });
+
 
         let estimatedGas = 0;
+        return simulateClaimDto;
+    }
+
+    cleanLandResource(resource: string): string{
+        const resourceItem = resource.split('-')[1].split(' ')[2].toLowerCase()
+        return resourceItem
+    }
+
+    async getHeroTypeAndLand(heroNumber: number): Promise<[string,string]>{
+        const response = await firstValueFrom(
+            this.httpService.get(
+                `https://rytell.mypinata.cloud/ipfs/QmXHJfoMaDiRuzgkVSMkEsMgQNAtSKr13rtw5s59QoHJAm/${heroNumber}.json`,
+            ),
+        );
+        const heroAttr: any = {};
+        response.data.attributes.forEach((attr) => {
+            const attrName = attr.trait_type.toString().toLowerCase();
+            const value = attr.value;
+            heroAttr[attrName] = value;
+        });
+        return [heroAttr.character.toLowerCase(), heroAttr.background.toLowerCase()];
+    }
+
+    getHeroEmission(heroTypeAndLand: [string, string], basicEmission: number): number {
+        const rawdata = fs.readFileSync('landsMetada.json');
+        const herosLands = JSON.parse(rawdata.toString());
+        const heroLands = herosLands[heroTypeAndLand[0]]
+        const heroLandEmission = (basicEmission * +heroLands.lands[heroTypeAndLand[1]]) + basicEmission
+        return heroLandEmission;
     }
 
     async claim(): Promise<any> {}
@@ -145,11 +190,13 @@ export class LandService {
         return collections[id].hash;
     }
 
-    test(): string {
+    getBasicEmission(resource: string, level: number): number {
         const rawdata = fs.readFileSync('basicEmissions.json');
         const basicEmissions = JSON.parse(rawdata.toString());
-        //basicEmissions['wood'][0]
-        console.log(basicEmissions);
+        return +basicEmissions[resource][level-1];
+    }
+
+    test(): any {
         return '';
     }
 
