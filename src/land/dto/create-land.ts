@@ -1,5 +1,5 @@
 export class CreateLandDto {
     landId: number;
-    collection: number;
+    collection: string;
     staker: string;
   }

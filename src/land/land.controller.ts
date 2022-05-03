@@ -22,9 +22,9 @@ export class LandController {
     }
 
     @Post('simulate-claim')
-    simulateClaim(@Body() body): Promise<any> {
+    async simulateClaim(@Body() body): Promise<any> {
         const simulateClaimDto: SimulateClaimDto = body.simulateClaimDto;
-        return this.landService.simulateClaim(simulateClaimDto);
+        return await this.landService.simulateClaim(simulateClaimDto);
     }
 
     @Get('per-hero')

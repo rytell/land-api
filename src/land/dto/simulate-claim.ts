@@ -5,5 +5,6 @@ interface Land {
 
 export class SimulateClaimDto {
     lands: Land[];
-    hero: number;
+    heroNumber: number;
+    owner: string;
 }
