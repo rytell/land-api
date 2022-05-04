@@ -17,6 +17,9 @@ export class Land extends BaseEntity {
     hero_number: number;
 
     @Column({ nullable: false })
+    hero_type: string;
+
+    @Column({ nullable: false })
     type: string;
 
     @Column({ nullable: false })
