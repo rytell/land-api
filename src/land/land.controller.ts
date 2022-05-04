@@ -10,6 +10,7 @@ import { LandService } from './land.service';
 import { Land } from './land.entity';
 import { CreateLandDto } from './dto/create-land';
 import { SimulateClaimDto } from './dto/simulate-claim';
+import { SimulateLevelUpDto } from './dto/simulate-level-up';
 
 @Controller('land')
 export class LandController {
@@ -58,11 +59,10 @@ export class LandController {
         });
     }
 
-    @Post('mint-estimation')
-    getMintEstimation(@Body() body): any {
-        // const mintEstimationDto: any = body.mintEstimationDto;
-
-        return 'hello world';
+    @Post('level-up-estimation')
+    async getMintEstimation(@Body() body): Promise<any> {
+        const simulateLevelUpDto: SimulateLevelUpDto = body.simulateLevelUpDto;
+        return await this.landService.simulateLevelUp(simulateLevelUpDto);
     }
 
     @Get()
