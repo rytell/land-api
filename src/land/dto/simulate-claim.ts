@@ -1,4 +1,4 @@
-interface Land {
+export interface Land {
     landId: number;
     collection: string;
 }

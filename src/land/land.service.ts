@@ -1,14 +1,23 @@
-import { ConsoleLogger, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { first, firstValueFrom } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import * as fs from 'fs';
 import { CreateLandDto } from './dto/create-land';
 import { Land } from './land.entity';
 import { SimulateClaimDto } from './dto/simulate-claim';
-import { RPC_URL, STAKING_LAND } from 'src/constants';
+import {
+    IRON,
+    RADI,
+    RPC_URL,
+    STAKING_LAND,
+    STONE,
+    WHEAT,
+    WOOD,
+} from 'src/constants';
 import * as stakeLandAbi from '../constants/abis/stakeLands.json';
+import BN from 'bn.js';
 
 @Injectable()
 export class LandService {
@@ -44,7 +53,11 @@ export class LandService {
                 return landDB;
             }
         } else {
-            const landAPI = await this.getLandMetadata(createLandDto.landId, createLandDto.collection, createLandDto.staker);
+            const landAPI = await this.getLandMetadata(
+                createLandDto.landId,
+                createLandDto.collection,
+                createLandDto.staker,
+            );
 
             landAPI.staked = true;
             landAPI.lastStaked = new Date().toUTCString();
@@ -55,7 +68,11 @@ export class LandService {
         }
     }
 
-    async getLandMetadata(landId: number, collection: string, staker: string = ''): Promise<Land> {
+    async getLandMetadata(
+        landId: number,
+        collection: string,
+        staker = '',
+    ): Promise<Land> {
         const landAttr: any = {};
         const collectionHash = this.getCollectionHash(collection);
         const response = await firstValueFrom(
@@ -102,39 +119,67 @@ export class LandService {
     }
 
     async simulateClaim(simulateClaimDto: SimulateClaimDto): Promise<any> {
-        const heroType = await this.getHeroType(simulateClaimDto.heroNumber)
-        const heroLands = await this.getHeroLands({owner: simulateClaimDto.owner, hero: simulateClaimDto.heroNumber})
+        const heroType = await this.getHeroType(simulateClaimDto.heroNumber);
+        const heroLands = await this.getHeroLands({
+            owner: simulateClaimDto.owner,
+            hero: simulateClaimDto.heroNumber,
+        });
         let accumulatedIron = 0;
         let accumulatedStone = 0;
         let accumulatedWood = 0;
         let accumulatedWheat = 0;
         let accumulatedRadi = 0;
         await Promise.all(
-            simulateClaimDto.lands.map(async land => {
-                if(heroLands.filter(e => e.landId == land.landId && e.staked == true).length > 0){
-                    const landAPI = await this.getLandMetadata(land.landId, land.collection)
-                    const firstResource = this.cleanLandResource(landAPI.resource_a)
-                    const secondResource = this.cleanLandResource(landAPI.resource_b)
-                    const firstResourceBasicEmission = this.getBasicEmission(firstResource, 1)
-                    const secondResourceBasicEmission = this.getBasicEmission(secondResource, 1)
-                    const heroFirstEmission = this.getHeroEmission(heroType, landAPI.type.toLowerCase(), firstResourceBasicEmission);
-                    const heroSecondEmission = this.getHeroEmission(heroType, landAPI.type.toLowerCase(), secondResourceBasicEmission);
-                    console.log(firstResource)
+            simulateClaimDto.lands.map(async (land) => {
+                if (
+                    heroLands.filter(
+                        (e) => +e.landId === land.landId && e.staked == true,
+                    ).length > 0
+                ) {
+                    const landAPI = await this.getLandMetadata(
+                        land.landId,
+                        land.collection,
+                    );
+                    const firstResource = this.cleanLandResource(
+                        landAPI.resource_a,
+                    );
+                    const secondResource = this.cleanLandResource(
+                        landAPI.resource_b,
+                    );
+                    const firstResourceBasicEmission = this.getBasicEmission(
+                        firstResource,
+                        1,
+                    );
+                    const secondResourceBasicEmission = this.getBasicEmission(
+                        secondResource,
+                        1,
+                    );
+                    const heroFirstEmission = this.getHeroEmission(
+                        heroType,
+                        landAPI.type.toLowerCase(),
+                        firstResourceBasicEmission,
+                    );
+                    const heroSecondEmission = this.getHeroEmission(
+                        heroType,
+                        landAPI.type.toLowerCase(),
+                        secondResourceBasicEmission,
+                    );
+                    console.log(firstResource);
                     switch (firstResource) {
                         case 'iron':
-                            accumulatedIron+= heroFirstEmission;
+                            accumulatedIron += heroFirstEmission;
                             break;
                         case 'stone':
-                            accumulatedStone+= heroFirstEmission;
+                            accumulatedStone += heroFirstEmission;
                             break;
                         case 'wood':
-                            accumulatedWood+= heroFirstEmission;
+                            accumulatedWood += heroFirstEmission;
                             break;
                         case 'wheat':
-                            accumulatedWheat+= heroFirstEmission;
+                            accumulatedWheat += heroFirstEmission;
                             break;
                         case 'radi':
-                            accumulatedRadi+= heroFirstEmission;
+                            accumulatedRadi += heroFirstEmission;
                             break;
                         default:
                             break;
@@ -142,37 +187,63 @@ export class LandService {
 
                     switch (secondResource) {
                         case 'iron':
-                            accumulatedIron+= heroSecondEmission;
+                            accumulatedIron += heroSecondEmission;
                             break;
                         case 'stone':
-                            accumulatedStone+= heroSecondEmission;
+                            accumulatedStone += heroSecondEmission;
                             break;
                         case 'wood':
-                            accumulatedWood+= heroSecondEmission;
+                            accumulatedWood += heroSecondEmission;
                             break;
                         case 'wheat':
-                            accumulatedWheat+= heroSecondEmission;
+                            accumulatedWheat += heroSecondEmission;
                             break;
                         case 'radi':
-                            accumulatedRadi+= heroSecondEmission;
+                            accumulatedRadi += heroSecondEmission;
                             break;
                         default:
                             break;
                     }
                 }
-            }))
+            }),
+        );
         let estimatedGas = 0;
+        const chain = process.env.CHAIN || 43113;
+
+        estimatedGas = await this.getMintResourceEstimation({
+            to: simulateClaimDto.owner,
+            amounts: [
+                accumulatedIron,
+                accumulatedStone,
+                accumulatedWheat,
+                accumulatedWood,
+                accumulatedRadi,
+            ],
+            resources: [
+                IRON[chain],
+                STONE[chain],
+                WHEAT[chain],
+                WOOD[chain],
+                RADI[chain],
+            ],
+        });
+
         return {
-            accumulatedIron, accumulatedStone, accumulatedWood, accumulatedWheat, accumulatedRadi, estimatedGas
+            accumulatedIron,
+            accumulatedStone,
+            accumulatedWood,
+            accumulatedWheat,
+            accumulatedRadi,
+            estimatedGas,
         };
     }
 
-    cleanLandResource(resource: string): string{
-        const resourceItem = resource.split('-')[1].split(' ')[2].toLowerCase()
-        return resourceItem
+    cleanLandResource(resource: string): string {
+        const resourceItem = resource.split('-')[1].split(' ')[2].toLowerCase();
+        return resourceItem;
     }
 
-    async getHeroType(heroNumber: number): Promise<string>{
+    async getHeroType(heroNumber: number): Promise<string> {
         const response = await firstValueFrom(
             this.httpService.get(
                 `https://rytell.mypinata.cloud/ipfs/QmXHJfoMaDiRuzgkVSMkEsMgQNAtSKr13rtw5s59QoHJAm/${heroNumber}.json`,
@@ -187,24 +258,153 @@ export class LandService {
         return heroAttr.character.toLowerCase();
     }
 
-    getHeroEmission(heroType: string, land: string, basicEmission: number): number {
+    getHeroEmission(
+        heroType: string,
+        land: string,
+        basicEmission: number,
+    ): number {
         const rawdata = fs.readFileSync('landsMetada.json');
         const herosLands = JSON.parse(rawdata.toString());
-        const heroLands = herosLands[heroType]
-        const heroLandEmission = (basicEmission * +heroLands.lands[land]) + basicEmission
+        const heroLands = herosLands[heroType];
+        const heroLandEmission =
+            basicEmission * +heroLands.lands[land] + basicEmission;
         return heroLandEmission;
     }
 
     async claim(): Promise<any> {}
 
     async simulateLevelUp(simulateClaimDto: SimulateClaimDto): Promise<any> {
-        let lands: Land[] = [];
-        let accumulatedIron = 0;
-        let accumulatedStone = 0;
-        let accumulatedWood = 0;
-        let accumulatedWheat = 0;
+        const heroType = await this.getHeroType(simulateClaimDto.heroNumber);
+        const heroLands = await this.getHeroLands({
+            owner: simulateClaimDto.owner,
+            hero: simulateClaimDto.heroNumber,
+        });
+        let neededIron = 0;
+        let neededStone = 0;
+        let neededWood = 0;
+        let neededWheat = 0;
+        let neededRadi = 0;
+        let coolDownHasPassed = true;
+        await Promise.all(
+            simulateClaimDto.lands.map(async (land) => {
+                const heroLand = heroLands.find(
+                    (_heroLand) =>
+                        _heroLand.landId.toString() ===
+                            land.landId.toString() && _heroLand.staked,
+                );
+                if (heroLand) {
+                    console.log(
+                        new Date(),
+                        new Date(+heroLand.lastLeveledUp * 1000),
+                        heroLand.lastLeveledUp
+                    );
+                    if (
+                        new Date().getTime() - +heroLand.lastLeveledUp * 1000 <
+                        1000 * 60 * 60 * 24
+                    ) {
+                        coolDownHasPassed = false;
+                    }
+                    const nextLevel = +heroLand.level + 1;
+                    if (nextLevel > 50) {
+                        return;
+                    }
+                    const landAPI = await this.getLandMetadata(
+                        land.landId,
+                        land.collection,
+                    );
+                    const firstResource = this.cleanLandResource(
+                        landAPI.resource_a,
+                    );
+                    const secondResource = this.cleanLandResource(
+                        landAPI.resource_b,
+                    );
+                    const firstResourceBasicEmission = this.getBasicEmission(
+                        firstResource,
+                        1,
+                    );
+                    const secondResourceBasicEmission = this.getBasicEmission(
+                        secondResource,
+                        1,
+                    );
+                    const heroFirstEmission = this.getHeroEmission(
+                        heroType,
+                        landAPI.type.toLowerCase(),
+                        firstResourceBasicEmission,
+                    );
+                    const heroSecondEmission = this.getHeroEmission(
+                        heroType,
+                        landAPI.type.toLowerCase(),
+                        secondResourceBasicEmission,
+                    );
+                    switch (firstResource) {
+                        case 'iron':
+                            neededIron +=
+                                heroFirstEmission * (+heroLand.level + 1);
+                            break;
+                        case 'stone':
+                            neededStone += heroFirstEmission * nextLevel;
+                            break;
+                        case 'wood':
+                            neededWood += heroFirstEmission * nextLevel;
+                            break;
+                        case 'wheat':
+                            neededWheat += heroFirstEmission * nextLevel;
+                            break;
+                        default:
+                            break;
+                    }
 
+                    switch (secondResource) {
+                        case 'iron':
+                            neededIron += heroSecondEmission * nextLevel;
+                            break;
+                        case 'stone':
+                            neededStone += heroSecondEmission * nextLevel;
+                            break;
+                        case 'wood':
+                            neededWood += heroSecondEmission * nextLevel;
+                            break;
+                        case 'wheat':
+                            neededWheat += heroSecondEmission * nextLevel;
+                            break;
+                        default:
+                            break;
+                    }
+
+                    neededRadi += 1000 * (+heroLand.level + 1);
+                }
+            }),
+        );
         let estimatedGas = 0;
+        const chain = process.env.CHAIN || 43113;
+
+        estimatedGas = await this.getMintResourceEstimation({
+            to: simulateClaimDto.owner,
+            amounts: [
+                neededIron,
+                neededStone,
+                neededWheat,
+                neededWood,
+                neededRadi,
+            ],
+            resources: [
+                IRON[chain].address,
+                STONE[chain].address,
+                WHEAT[chain].address,
+                WOOD[chain].address,
+                RADI[chain].address,
+            ],
+        });
+
+        return {
+            neededIron,
+            neededRadi,
+            neededStone,
+            neededWheat,
+            neededWood,
+            estimatedGas,
+            coolDownHasPassed,
+        };
     }
 
     async levelUp(): Promise<any> {}
@@ -232,7 +432,7 @@ export class LandService {
     getBasicEmission(resource: string, level: number): number {
         const rawdata = fs.readFileSync('basicEmissions.json');
         const basicEmissions = JSON.parse(rawdata.toString());
-        return +basicEmissions[resource][level-1];
+        return +basicEmissions[resource][level - 1];
     }
 
     test(): any {
@@ -245,21 +445,39 @@ export class LandService {
     }: {
         owner: string;
         hero: number;
-    }): Promise<{landId:number, collection: string, staked:boolean, level: number}[]> {
+    }): Promise<
+        {
+            landId: string;
+            collection: string;
+            staked: boolean;
+            level: string;
+            lastLeveledUp: string;
+        }[]
+    > {
         const stakeLandsContract = await this.getStakeLandContract();
-        const rawResponse: any = await stakeLandsContract.methods
-            .getHeroLands(owner, hero)
-            .call({ from: process.env.GAME_EMISSIONS_FUND_ADDRESS });
-        const keys = ['landId', 'collection', 'staked', 'level'];
-        const heroLands = [];
-        for (let index = 0; index < rawResponse[0].length; index++) {
-            const base = {};
-            for (let innerIndex = 0; innerIndex < keys.length; innerIndex++) {
-                base[`${keys[innerIndex]}`] = rawResponse[innerIndex][index];
+        const lands = [];
+        let index = 0;
+        while (true) {
+            try {
+                const rawResponse: {
+                    landId: string;
+                    collection: string;
+                    staked: boolean;
+                    level: string;
+                    heroId: string;
+                } = await stakeLandsContract.methods
+                    .stakedLands(owner, index)
+                    .call();
+                if (+rawResponse.heroId === hero) {
+                    lands.push(rawResponse);
+                }
+            } catch (error) {
+                console.log(error);
+                break;
             }
-            heroLands.push(base);
+            index++;
         }
-        return heroLands;
+        return lands;
     }
 
     async getStakedHeros({ owner }: { owner: string }): Promise<any> {
@@ -322,8 +540,10 @@ export class LandService {
                 to,
             )
             .estimateGas({
-                from: process.env.GAME_EMISSIONS_FUND_ADDRESS,
+                from: process.env.DEPLOYER,
             });
         return estimation * 1.2;
     }
+
+    async getLevelUpEstimation() {}
 }
