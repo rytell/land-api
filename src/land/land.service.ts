@@ -58,11 +58,13 @@ export class LandService {
                 createLandDto.collection,
                 createLandDto.staker,
             );
+            const heroType = await this.getHeroType(createLandDto.heroNumber);
 
             landAPI.staked = true;
             landAPI.lastStaked = new Date().toUTCString();
             landAPI.lastUnstaked = new Date().toUTCString();
-            landAPI.hero_number = 4566;
+            landAPI.hero_number = createLandDto.heroNumber;
+            landAPI.hero_type = heroType;
             landAPI.staker = createLandDto.staker;
             return this.landsRepository.save(landAPI);
         }
@@ -119,7 +121,6 @@ export class LandService {
     }
 
     async simulateClaim(simulateClaimDto: SimulateClaimDto): Promise<any> {
-        const heroType = await this.getHeroType(simulateClaimDto.heroNumber);
         const heroLands = await this.getHeroLands({
             owner: simulateClaimDto.owner,
             hero: simulateClaimDto.heroNumber,
@@ -133,76 +134,84 @@ export class LandService {
             simulateClaimDto.lands.map(async (land) => {
                 if (
                     heroLands.filter(
-                        (e) => +e.landId === land.landId && e.staked == true,
+                        (e) => +e.landId == land.landId && e.staked == true,
                     ).length > 0
                 ) {
-                    const landAPI = await this.getLandMetadata(
-                        land.landId,
-                        land.collection,
-                    );
-                    const firstResource = this.cleanLandResource(
-                        landAPI.resource_a,
-                    );
-                    const secondResource = this.cleanLandResource(
-                        landAPI.resource_b,
-                    );
-                    const firstResourceBasicEmission = this.getBasicEmission(
-                        firstResource,
-                        1,
-                    );
-                    const secondResourceBasicEmission = this.getBasicEmission(
-                        secondResource,
-                        1,
-                    );
-                    const heroFirstEmission = this.getHeroEmission(
-                        heroType,
-                        landAPI.type.toLowerCase(),
-                        firstResourceBasicEmission,
-                    );
-                    const heroSecondEmission = this.getHeroEmission(
-                        heroType,
-                        landAPI.type.toLowerCase(),
-                        secondResourceBasicEmission,
-                    );
-                    console.log(firstResource);
-                    switch (firstResource) {
-                        case 'iron':
-                            accumulatedIron += heroFirstEmission;
-                            break;
-                        case 'stone':
-                            accumulatedStone += heroFirstEmission;
-                            break;
-                        case 'wood':
-                            accumulatedWood += heroFirstEmission;
-                            break;
-                        case 'wheat':
-                            accumulatedWheat += heroFirstEmission;
-                            break;
-                        case 'radi':
-                            accumulatedRadi += heroFirstEmission;
-                            break;
-                        default:
-                            break;
+                    const landDB = await this.landsRepository.findOne({
+                        land_id: land.landId,
+                        collection: land.collection,
+                    });
+                    if (!landDB) {
+                        const createLandDto = new CreateLandDto();
+                        createLandDto.collection = land.collection;
+                        createLandDto.heroNumber = simulateClaimDto.heroNumber;
+                        createLandDto.landId = land.landId;
+                        createLandDto.staker = simulateClaimDto.owner;
+                        this.create(createLandDto);
                     }
+                    try {
+                        const firstResource = this.cleanLandResource(
+                            landDB.resource_a,
+                        );
+                        const secondResource = this.cleanLandResource(
+                            landDB.resource_b,
+                        );
+                        const firstResourceBasicEmission =
+                            this.getBasicEmission(firstResource, 1);
+                        const secondResourceBasicEmission =
+                            this.getBasicEmission(secondResource, 1);
+                        const heroFirstEmission = this.getHeroEmission(
+                            landDB.hero_type,
+                            landDB.type.toLowerCase(),
+                            firstResourceBasicEmission,
+                        );
+                        const heroSecondEmission = this.getHeroEmission(
+                            landDB.hero_type,
+                            landDB.type.toLowerCase(),
+                            secondResourceBasicEmission,
+                        );
+                        switch (firstResource) {
+                            case 'iron':
+                                accumulatedIron += heroFirstEmission;
+                                break;
+                            case 'stone':
+                                accumulatedStone += heroFirstEmission;
+                                break;
+                            case 'wood':
+                                accumulatedWood += heroFirstEmission;
+                                break;
+                            case 'wheat':
+                                accumulatedWheat += heroFirstEmission;
+                                break;
+                            case 'radi':
+                                accumulatedRadi += heroFirstEmission;
+                                break;
+                            default:
+                                break;
+                        }
 
-                    switch (secondResource) {
-                        case 'iron':
-                            accumulatedIron += heroSecondEmission;
-                            break;
-                        case 'stone':
-                            accumulatedStone += heroSecondEmission;
-                            break;
-                        case 'wood':
-                            accumulatedWood += heroSecondEmission;
-                            break;
-                        case 'wheat':
-                            accumulatedWheat += heroSecondEmission;
-                            break;
-                        case 'radi':
-                            accumulatedRadi += heroSecondEmission;
-                            break;
-                        default:
-                            break;
+                        switch (secondResource) {
+                            case 'iron':
+                                accumulatedIron += heroSecondEmission;
+                                break;
+                            case 'stone':
+                                accumulatedStone += heroSecondEmission;
+                                break;
+                            case 'wood':
+                                accumulatedWood += heroSecondEmission;
+                                break;
+                            case 'wheat':
+                                accumulatedWheat += heroSecondEmission;
+                                break;
+                            case 'radi':
+                                accumulatedRadi += heroSecondEmission;
+                                break;
+                            default:
+                                break;
+                        }
+                    } catch (error) {
+                        console.log(error);
+                        throw 'One of the lands was not saved in our databases, please retry';
                     }
                 }
             }),
