@@ -229,11 +229,11 @@ export class LandService {
                 accumulatedRadi,
             ],
             resources: [
-                IRON[chain],
-                STONE[chain],
-                WHEAT[chain],
-                WOOD[chain],
-                RADI[chain],
+                IRON[chain].address,
+                STONE[chain].address,
+                WHEAT[chain].address,
+                WOOD[chain].address,
+                RADI[chain].address,
             ],
         });
 
