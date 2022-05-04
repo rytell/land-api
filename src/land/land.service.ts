@@ -293,11 +293,6 @@ export class LandService {
                             land.landId.toString() && _heroLand.staked,
                 );
                 if (heroLand) {
-                    console.log(
-                        new Date(),
-                        new Date(+heroLand.lastLeveledUp * 1000),
-                        heroLand.lastLeveledUp
-                    );
                     if (
                         new Date().getTime() - +heroLand.lastLeveledUp * 1000 <
                         1000 * 60 * 60 * 24
@@ -472,7 +467,6 @@ export class LandService {
                     lands.push(rawResponse);
                 }
             } catch (error) {
-                console.log(error);
                 break;
             }
             index++;
