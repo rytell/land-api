@@ -2,12 +2,12 @@ import { Column, Entity, Unique } from 'typeorm';
 import { BaseEntity } from '../base-entity';
 
 @Entity('lands')
-@Unique(["land_id","collection"])
+@Unique(['land_id', 'collection'])
 export class Land extends BaseEntity {
     @Column({ type: 'int', nullable: false })
     land_id: number;
 
-    @Column({nullable: false })
+    @Column({ nullable: false })
     collection: string;
 
     @Column({ nullable: false })

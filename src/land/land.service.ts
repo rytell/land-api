@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { firstValueFrom } from 'rxjs';
@@ -7,15 +7,32 @@ import * as fs from 'fs';
 import { CreateLandDto } from './dto/create-land';
 import { Land } from './land.entity';
 import { SimulateClaimDto } from './dto/simulate-claim';
-import { IRON, RADI, RPC_URL, STAKING_LAND, STONE, WHEAT, WOOD } from 'src/constants';
+import { IRON, LandContract, RADI, RPC_URL, STAKING_LAND, STONE, WHEAT, WOOD } from 'src/constants';
 import * as stakeLandAbi from '../constants/abis/stakeLands.json';
 import { SimulateLevelUpDto } from './dto/simulate-level-up';
+import { LevelUpDto } from './dto/level-up';
+import { GeneralTransaction } from './general-transaction.entity';
+
+interface LevelUpEstimation {
+    neededIron: number;
+    neededRadi: number;
+    neededStone: number;
+    neededWheat: number;
+    neededWood: number;
+    estimatedGas: number;
+    avaxProcessingFee: number; // hardcoded 0.1 AVAX for testing purposes
+    coolDownHasPassed: boolean;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const Web3 = require('web3');
 
 @Injectable()
 export class LandService {
     constructor(
         @InjectRepository(Land)
         private readonly landsRepository: Repository<Land>,
+        private readonly transactionsRepository: Repository<GeneralTransaction>,
         private httpService: HttpService,
     ) {}
 
@@ -233,9 +250,9 @@ export class LandService {
 
     async claim(): Promise<any> {}
 
-    async simulateLevelUp(simulateLevelUpDto: SimulateLevelUpDto): Promise<any> {
+    async simulateLevelUp(simulateLevelUpDto: SimulateLevelUpDto): Promise<LevelUpEstimation> {
         const heroType = await this.getHeroType(simulateLevelUpDto.heroNumber);
-        const heroLands = await this.getHeroLands({
+        const heroLands: LandContract[] = await this.getHeroLands({
             owner: simulateLevelUpDto.owner,
             hero: simulateLevelUpDto.heroNumber,
         });
@@ -301,18 +318,18 @@ export class LandService {
                 }
             }),
         );
-        let estimatedGas = 0;
-        const chain = process.env.CHAIN || 43113;
+        // let estimatedGas = 0;
+        // const chain = process.env.CHAIN || 43113;
 
-        estimatedGas = await this.getLevelUpEstimation({
-            hero: simulateLevelUpDto.heroNumber,
-            owner: simulateLevelUpDto.owner,
-            whoPays: simulateLevelUpDto.owner,
-            amounts: [neededIron, neededStone, neededWheat, neededWood, neededRadi],
-            resources: [IRON[chain].address, STONE[chain].address, WHEAT[chain].address, WOOD[chain].address, RADI[chain].address],
-        });
+        // estimatedGas = await this.getLevelUpEstimation({
+        //     hero: simulateLevelUpDto.heroNumber,
+        //     owner: simulateLevelUpDto.owner,
+        //     whoPays: simulateLevelUpDto.owner,
+        //     amounts: [neededIron, neededStone, neededWheat, neededWood, neededRadi],
+        //     resources: [IRON[chain].address, STONE[chain].address, WHEAT[chain].address, WOOD[chain].address, RADI[chain].address],
+        // });
 
-        const avaxProcessingFee = await this.getAvaxFeeFromGasUnits(estimatedGas);
+        // const avaxProcessingFee = await this.getAvaxFeeFromGasUnits(estimatedGas);
 
         return {
             neededIron,
@@ -320,152 +337,163 @@ export class LandService {
             neededStone,
             neededWheat,
             neededWood,
-            estimatedGas,
-            avaxProcessingFee,
+            estimatedGas: 2000000,
+            avaxProcessingFee: 100000000000000000, // hardcoded 0.1 AVAX for testing purposes
             coolDownHasPassed,
         };
     }
 
-    // async levelUp(levelUpDto: SimulateLevelUpDto): Promise<any> {
-    //     try {
-    //         const estimation = await this.simulateLevelUp(levelUpDto);
-    //         const searchTx = async () => {
-    //             const txs = await this.getAccountFromAPI();
+    async levelUp(levelUpDto: LevelUpDto): Promise<any> {
+        try {
+            const estimation = await this.simulateLevelUp(levelUpDto);
+            const searchTx = async () => {
+                const txs = await this.getAccountFromAPI();
 
-    //             const tx = await txs?.result?.find?.((tx) => tx.hash.toLowerCase() === claimHeroDto.transactionHash.toLowerCase());
+                const tx = await txs?.result?.find?.((tx) => tx.hash.toLowerCase() === levelUpDto.transactionHash.toLowerCase());
 
-    //             return tx;
-    //         };
+                return tx;
+            };
 
-    //         const tx = await this.retryCallbackTimes(searchTx, 15);
+            const tx = await this.retryCallbackTimes(searchTx, 15);
 
-    //         if (!tx) {
-    //             throw new HttpException('Tx Not Found', HttpStatus.NOT_FOUND);
-    //         }
+            if (!tx) {
+                throw new HttpException('Tx Not Found', HttpStatus.NOT_FOUND);
+            }
 
-    //         const hero = await this.herosRepository.findOne({
-    //             hero_number: claimHeroDto.heroNumber,
-    //         });
+            let levelUpTransaction = {};
+            const levelUpTransactionDb = await this.transactionsRepository.findOne({
+                hash: levelUpDto.transactionHash,
+                redeemed: false,
+            });
+            if (levelUpTransactionDb) {
+                levelUpTransaction = {
+                    ...levelUpTransactionDb,
+                    hash: levelUpDto.transactionHash,
+                    staker: levelUpDto.owner,
+                    value: tx.value,
+                    redeemed: false,
+                    character: levelUpDto.heroNumber,
+                    radiValue: estimation.neededRadi,
+                    ironValue: estimation.neededIron,
+                    stoneValue: estimation.stoneValue,
+                    woodValue: estimation.woodValue,
+                    wheatValue: estimation.wheatValue,
+                };
+            } else {
+                levelUpTransaction = {
+                    hash: levelUpDto.transactionHash,
+                    staker: levelUpDto.owner,
+                    value: tx.value,
+                    redeemed: false,
+                    character: levelUpDto.heroNumber,
+                    radiValue: estimation.neededRadi,
+                    ironValue: estimation.neededIron,
+                    stoneValue: estimation.stoneValue,
+                    woodValue: estimation.woodValue,
+                    wheatValue: estimation.wheatValue,
+                    type: 'LEVEL_UP',
+                };
+            }
+            try {
+                const transactionDb = await this.transactionsRepository.save(levelUpTransaction);
 
-    //         if (!hero) {
-    //             throw new HttpException('Hero Not Found', HttpStatus.NOT_FOUND);
-    //         }
+                const web3 = new Web3(new Web3.providers.HttpProvider(RPC_URL[process.env.CHAIN]));
 
-    //         let claimTransaction = {};
-    //         const claimTransactionDB = await this.claimTransactionsRepository.findOne({
-    //             hash: claimHeroDto.transactionHash,
-    //             redeemed: false,
-    //         });
-    //         if (claimTransactionDB) {
-    //             claimTransaction = {
-    //                 ...claimTransactionDB,
-    //                 hash: claimHeroDto.transactionHash,
-    //                 staker: hero.staker,
-    //                 value: tx.value,
-    //                 redeemed: false,
-    //                 character: hero.hero_number,
-    //                 radiValue: estimation.accumulated,
-    //             };
-    //         } else {
-    //             claimTransaction = {
-    //                 hash: claimHeroDto.transactionHash,
-    //                 staker: hero.staker,
-    //                 value: tx.value,
-    //                 redeemed: false,
-    //                 character: hero.hero_number,
-    //                 radiValue: estimation.accumulated,
-    //             };
-    //         }
-    //         try {
-    //             const transactionDb = await this.claimTransactionsRepository.save(claimTransaction);
+                const gasPrice = await web3.eth.getGasPrice();
+                const fee = estimation.estimatedGas * gasPrice;
+                const percentageDifference = Math.abs((fee - tx.value) / fee) * 100;
 
-    //             // eslint-disable-next-line @typescript-eslint/no-var-requires
-    //             const Web3 = require('web3');
-    //             const web3 = new Web3(new Web3.providers.HttpProvider(RPC_URL[process.env.CHAIN]));
+                if (percentageDifference > 15) {
+                    throw new HttpException(
+                        'Difference from payment and current estimation is too high for us to process the claim.',
+                        HttpStatus.BAD_REQUEST,
+                    );
+                }
 
-    //             const gasPrice = await web3.eth.getGasPrice();
-    //             const fee = estimation.estimatedGas * gasPrice;
-    //             const percentageDifference = Math.abs((fee - tx.value) / fee) * 100;
+                const tryLevelUp = async () => {
+                    const stakeLandsContract = await this.getStakeLandContract();
+                    const utils = Web3.utils;
+                    const address = process.env.GAME_EMISSIONS_FUND_ADDRESS;
 
-    //             if (percentageDifference > 15) {
-    //                 throw new HttpException(
-    //                     'Difference from payment and current estimation is too high for us to process the claim.',
-    //                     HttpStatus.BAD_REQUEST,
-    //                 );
-    //             }
+                    const resourceInWei = (amount: number) => utils.toWei(amount.toString());
+                    const chain = process.env.CHAIN || 43113;
 
-    //             const tryTransferRadi = async () => {
-    //                 const radiContract = await getRadiContract();
-    //                 const utils = web3Utils();
-    //                 const address = process.env.GAME_EMISSIONS_FUND_ADDRESS;
-    //                 try {
-    //                     const transferTx = radiContract.methods.transfer(
-    //                         transactionDb.staker,
-    //                         utils.toWei(estimation.accumulated.toFixed(7).toString()),
-    //                     );
-    //                     try {
-    //                         const gas = await transferTx.estimateGas({
-    //                             from: address,
-    //                         });
-    //                         try {
-    //                             const gasPrice = await web3.eth.getGasPrice();
-    //                             const data = transferTx.encodeABI();
-    //                             const nonce = await web3.eth.getTransactionCount(address);
-    //                             const chainId = await web3.eth.net.getId();
-    //                             const privateKey = process.env.PRIVATE_KEY;
-    //                             const signedTx = await web3.eth.accounts.signTransaction(
-    //                                 {
-    //                                     to: radiContract.options.address,
-    //                                     data,
-    //                                     gas,
-    //                                     gasPrice,
-    //                                     nonce,
-    //                                     chainId,
-    //                                 },
-    //                                 privateKey,
-    //                             );
+                    try {
+                        const levelUpTx = stakeLandsContract.methods.levelHeroLandsUp(
+                            [IRON[chain].address, STONE[chain].address, WOOD[chain].address, WHEAT[chain].address, RADI[chain].address],
+                            [
+                                resourceInWei(estimation.neededIron),
+                                resourceInWei(estimation.neededStone),
+                                resourceInWei(estimation.neededWood),
+                                resourceInWei(estimation.neededWheat),
+                                resourceInWei(estimation.neededRadi),
+                            ],
+                        );
+                        try {
+                            const gas = await levelUpTx.estimateGas({
+                                from: address,
+                            });
+                            try {
+                                const gasPrice = await web3.eth.getGasPrice();
+                                const data = levelUpTx.encodeABI();
+                                const nonce = await web3.eth.getTransactionCount(address);
+                                const chainId = await web3.eth.net.getId();
+                                const privateKey = process.env.PRIVATE_KEY;
+                                const signedTx = await web3.eth.accounts.signTransaction(
+                                    {
+                                        to: stakeLandsContract.options.address,
+                                        data,
+                                        gas,
+                                        gasPrice,
+                                        nonce,
+                                        chainId,
+                                    },
+                                    privateKey,
+                                );
 
-    //                             await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
-    //                         } catch (error) {
-    //                             sendError(JSON.stringify({ error, claimHeroDto }));
-    //                             throw new HttpException(error, HttpStatus.INTERNAL_SERVER_ERROR);
-    //                         }
-    //                     } catch (error) {
-    //                         sendError(JSON.stringify({ error, claimHeroDto }));
-    //                         throw new HttpException(error, HttpStatus.INTERNAL_SERVER_ERROR);
-    //                     }
+                                await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+                            } catch (error) {
+                                // sendError(JSON.stringify({ error, claimHeroDto }));
+                                throw new HttpException(error, HttpStatus.INTERNAL_SERVER_ERROR);
+                            }
+                        } catch (error) {
+                            // sendError(JSON.stringify({ error, claimHeroDto }));
+                            throw new HttpException(error, HttpStatus.INTERNAL_SERVER_ERROR);
+                        }
 
-    //                     transactionDb.redeemed = true;
-    //                     await this.claimTransactionsRepository.save(transactionDb);
-    //                     hero.lastClaim = new Date().getTime().toString();
-    //                     this.herosRepository.save(hero);
-    //                 } catch (error) {
-    //                     sendError(JSON.stringify({ error, claimHeroDto }));
-    //                     throw new HttpException(error, HttpStatus.INTERNAL_SERVER_ERROR);
-    //                 }
-    //             };
+                        transactionDb.redeemed = true;
+                        await this.transactionsRepository.save(transactionDb);
 
-    //             await tryTransferRadi();
+                        // TOOD: mark last claim on each land
+                        // hero.lastClaim = new Date().getTime().toString();
+                        // this.herosRepository.save(hero);
+                    } catch (error) {
+                        // sendError(JSON.stringify({ error, claimHeroDto }));
+                        throw new HttpException(error, HttpStatus.INTERNAL_SERVER_ERROR);
+                    }
+                };
 
-    //             return {
-    //                 estimation,
-    //                 tx,
-    //                 fee,
-    //                 percentageDifference,
-    //                 redeemed: transactionDb.redeemed,
-    //             };
-    //         } catch (error) {
-    //             throw new HttpException("Transaction could'nt be saved", HttpStatus.BAD_REQUEST);
-    //         }
-    //     } catch (error) {
-    //         sendError(JSON.stringify({ error, claimHeroDto }));
-    //         throw new HttpException('Unexpected', HttpStatus.INTERNAL_SERVER_ERROR);
-    //     }
-    // }
+                await tryLevelUp();
+
+                return {
+                    estimation,
+                    tx,
+                    fee,
+                    percentageDifference,
+                    redeemed: transactionDb.redeemed,
+                };
+            } catch (error) {
+                throw new HttpException("Transaction could'nt be saved", HttpStatus.BAD_REQUEST);
+            }
+        } catch (error) {
+            // sendError(JSON.stringify({ error, claimHeroDto }));
+            throw new HttpException('Unexpected', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    async markLastClaimOnLands() {}
 
     async getStakeLandContract() {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const Web3 = require('web3');
         const web3 = new Web3(new Web3.providers.HttpProvider(RPC_URL[process.env.CHAIN]));
         const stakeLandsContract = new web3.eth.Contract(stakeLandAbi, STAKING_LAND[process.env.CHAIN || 43113]);
 
@@ -473,8 +501,6 @@ export class LandService {
     }
 
     async getAvaxFeeFromGasUnits(gasUnits: number) {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const Web3 = require('web3');
         const web3 = new Web3(new Web3.providers.HttpProvider(RPC_URL[process.env.CHAIN]));
 
         const gasPrice = await web3.eth.getGasPrice();
@@ -497,27 +523,13 @@ export class LandService {
         return '';
     }
 
-    async getHeroLands({ owner, hero }: { owner: string; hero: number }): Promise<
-        {
-            landId: string;
-            collection: string;
-            staked: boolean;
-            level: string;
-            lastLeveledUp: string;
-        }[]
-    > {
+    async getHeroLands({ owner, hero }: { owner: string; hero: number }): Promise<LandContract[]> {
         const stakeLandsContract = await this.getStakeLandContract();
         const lands = [];
         let index = 0;
         while (true) {
             try {
-                const rawResponse: {
-                    landId: string;
-                    collection: string;
-                    staked: boolean;
-                    level: string;
-                    heroId: string;
-                } = await stakeLandsContract.methods.stakedLands(owner, index).call();
+                const rawResponse: LandContract = await stakeLandsContract.methods.stakedLands(owner, index).call();
                 if (+rawResponse.heroId === hero) {
                     lands.push(rawResponse);
                 }
@@ -568,8 +580,6 @@ export class LandService {
     }
 
     async getMintResourceEstimation({ to, amounts, resources }: { to: string; amounts: number[]; resources: string[] }) {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const Web3 = require('web3');
         const stakeLandContract = await this.getStakeLandContract();
         const utils = Web3.utils;
         const estimation = await stakeLandContract.methods
@@ -597,8 +607,6 @@ export class LandService {
         whoPays: string;
         owner: string;
     }) {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const Web3 = require('web3');
         const stakeLandContract = await this.getStakeLandContract();
         const utils = Web3.utils;
         const estimation = await stakeLandContract.methods
@@ -624,5 +632,19 @@ export class LandService {
         );
 
         return response.data;
+    }
+
+    async retryCallbackTimes(callback: any, times: number) {
+        if (times > 0) {
+            const result = await callback();
+            if (result) {
+                return result;
+            } else {
+                console.log('trying again: ', times);
+                return await this.retryCallbackTimes(callback, --times);
+            }
+        } else {
+            return undefined;
+        }
     }
 }

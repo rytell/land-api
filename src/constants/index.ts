@@ -8,6 +8,18 @@ export interface HeroContract {
     owner: string;
 }
 
+export interface LandContract {
+    landId: string;
+    collection: string;
+    staked: boolean;
+    level: string;
+    heroId: string;
+    lastStaked: number;
+    lastUnstaked: number;
+    lastLeveledUp: number;
+    owner: string;
+}
+
 export const RPC_URL = {
     [ChainId.FUJI]: 'https://speedy-nodes-nyc.moralis.io/47081753cf11c09387130dee/avalanche/testnet',
     [ChainId.AVALANCHE]: 'https://speedy-nodes-nyc.moralis.io/47081753cf11c09387130dee/avalanche/mainnet',
