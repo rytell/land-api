@@ -601,13 +601,6 @@ export class LandService {
         const Web3 = require('web3');
         const stakeLandContract = await this.getStakeLandContract();
         const utils = Web3.utils;
-        console.log(
-            resources,
-            amounts.map((amount) => utils.toWei(amount.toString())),
-            hero,
-            whoPays,
-            owner,
-        );
         const estimation = await stakeLandContract.methods
             .levelHeroLandsUp(
                 resources,
