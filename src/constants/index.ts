@@ -165,3 +165,8 @@ export const IRON = {
         'Rytell Iron Ore',
     ),
 };
+
+export const SNOWTRACE = {
+    [ChainId.FUJI]: 'https://api-testnet.snowtrace.io',
+    [ChainId.AVALANCHE]: 'https://api.snowtrace.io',
+};

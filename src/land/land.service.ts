@@ -6,7 +6,7 @@ import { HttpService } from '@nestjs/axios';
 import * as fs from 'fs';
 import { CreateLandDto } from './dto/create-land';
 import { Land } from './land.entity';
-import { SimulateClaimDto } from './dto/simulate-claim';
+import { ClaimLandDto } from './dto/claim-land';
 import {
     IRON,
     RADI,
@@ -15,10 +15,12 @@ import {
     STONE,
     WHEAT,
     WOOD,
+    SNOWTRACE
 } from 'src/constants';
 import * as stakeLandAbi from '../constants/abis/stakeLands.json';
 import BN from 'bn.js';
 
+const chain = process.env.CHAIN || 43113;
 @Injectable()
 export class LandService {
     constructor(
@@ -120,11 +122,11 @@ export class LandService {
         return '';
     }
 
-    async simulateClaim(simulateClaimDto: SimulateClaimDto): Promise<any> {
-        const heroLands = await this.getHeroLands({
-            owner: simulateClaimDto.owner,
-            hero: simulateClaimDto.heroNumber,
-        });
+    async simulateClaim(simulateClaimDto: ClaimLandDto): Promise<any> {
+        // const heroLands = await this.getHeroLands({
+        //     owner: simulateClaimDto.owner,
+        //     hero: simulateClaimDto.heroNumber,
+        // });
         let accumulatedIron = 0;
         let accumulatedStone = 0;
         let accumulatedWood = 0;
@@ -132,11 +134,11 @@ export class LandService {
         let accumulatedRadi = 0;
         await Promise.all(
             simulateClaimDto.lands.map(async (land) => {
-                if (
-                    heroLands.filter(
-                        (e) => +e.landId == land.landId && e.staked == true,
-                    ).length > 0
-                ) {
+                // if (
+                //     heroLands.filter(
+                //         (e) => +e.landId == land.landId && e.staked == true,
+                //     ).length > 0
+                // ) {
                     const landDB = await this.landsRepository.findOne({
                         land_id: land.landId,
                         collection: land.collection,
@@ -214,10 +216,10 @@ export class LandService {
                         throw 'One of the lands was not saved in our databases, please retry';
                     }
                 }
-            }),
+            // }
+            ),
         );
         let estimatedGas = 0;
-        const chain = process.env.CHAIN || 43113;
 
         estimatedGas = await this.getMintResourceEstimation({
             to: simulateClaimDto.owner,
@@ -280,9 +282,79 @@ export class LandService {
         return heroLandEmission;
     }
 
-    async claim(): Promise<any> {}
+    validateClaimTransactionDTO(claimTransactionDto: ClaimLandDto){
+        const errors = claimTransactionDto.lands.map( land => {
+            if (land.landId != null) {
+                if (+land.landId === 0) {
+                    throw 'Error, landId required';
+                }
+            } else {
+                throw 'Error, landId required';
+            }
+    
+            if (claimTransactionDto.transactionHash != null) {
+                if (claimTransactionDto.transactionHash?.trim() === '') {
+                    throw 'Error, hash required';
+                }
+            } else {
+                throw 'Error, hash required';
+            }
+    
+            return ''
+        })
+    }
 
-    async simulateLevelUp(simulateClaimDto: SimulateClaimDto): Promise<any> {
+    async claim(claimLandDto: ClaimLandDto): Promise<any> {
+        this.validateClaimTransactionDTO(claimLandDto);
+        try{
+            const resourcesToClaim = await this.simulateClaim(claimLandDto);
+
+            const searchTx = async () => {
+                const txs = await this.getAccountFromAPI();
+
+                const tx = await txs?.result?.find?.(
+                    (tx) =>
+                        tx.hash.toLowerCase() ===
+                        claimLandDto.transactionHash.toLowerCase(),
+                );
+
+                return tx;
+            };
+
+            const tx = await this.retryCallbackTimes(searchTx, 15);
+            console.log(tx)
+        } catch (error){
+            throw error;
+        }
+        return claimLandDto;
+    }
+
+    async getAccountFromAPI(): Promise<any> {
+        const snowtraceAPIBaseUrl = SNOWTRACE[chain]        
+        const response = await firstValueFrom(
+            this.httpService.get(
+                `${snowtraceAPIBaseUrl}/api?module=account&action=txlist&address=${process.env.GAME_EMISSIONS_FUND_ADDRESS}&startblock=1&endblock=99999999&sort=desc`,
+            ),
+        );
+
+        return response.data;
+    }
+
+    async retryCallbackTimes(callback: any, times: number) {
+        if (times > 0) {
+            const result = await callback();
+            if (result) {
+                return result;
+            } else {
+                console.log('trying again: ', times);
+                return await this.retryCallbackTimes(callback, --times);
+            }
+        } else {
+            return undefined;
+        }
+    }
+
+    async simulateLevelUp(simulateClaimDto: ClaimLandDto): Promise<any> {
         const heroType = await this.getHeroType(simulateClaimDto.heroNumber);
         const heroLands = await this.getHeroLands({
             owner: simulateClaimDto.owner,

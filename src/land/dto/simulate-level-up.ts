@@ -1,4 +1,4 @@
-import { Land } from './simulate-claim';
+import { Land } from './claim-land';
 
 export class SimulateLevelUpDto {
     lands: Land[];
