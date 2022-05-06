@@ -242,7 +242,7 @@ export class LandService {
 
     daysDifference(date1, date2): number {
         const difference = date1.getTime() - date2.getTime();
-        const daysDifference = Math.round(difference / (1000 * 3600 * 24));
+        const daysDifference = Math.floor(difference / (1000 * 3600 * 24));
         return daysDifference;
     }
 
