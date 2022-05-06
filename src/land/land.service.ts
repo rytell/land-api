@@ -51,9 +51,8 @@ export class LandService {
                     ...landDB,
                     staked: false,
                     staker: createLandDto.staker,
-                    lastStaked: new Date().toUTCString(),
-                    lastUnstaked: new Date().toUTCString(),
-                    updated_at: new Date(new Date().toUTCString()),
+                    lastStaked: new Date().getTime().toString(),
+                    updated_at: new Date(new Date().getTime().toString()),
                 };
                 return this.landsRepository.save(land);
             } else {
@@ -68,8 +67,7 @@ export class LandService {
             const heroType = await this.getHeroType(createLandDto.heroNumber);
 
             landAPI.staked = true;
-            landAPI.lastStaked = new Date().toUTCString();
-            landAPI.lastUnstaked = new Date().toUTCString();
+            landAPI.lastStaked = new Date().getTime().toString();
             landAPI.hero_number = createLandDto.heroNumber;
             landAPI.hero_type = heroType;
             landAPI.staker = createLandDto.staker;
@@ -157,6 +155,11 @@ export class LandService {
                     this.create(createLandDto);
                 }
                 try {
+                    const lastStaked = +landDB.lastStaked;
+                    const daysDifference = this.daysDifference(
+                        new Date(),
+                        new Date(+lastStaked),
+                    );
                     const firstResource = this.cleanLandResource(
                         landDB.resource_a,
                     );
@@ -179,19 +182,19 @@ export class LandService {
                     );
                     switch (firstResource) {
                         case 'iron':
-                            accumulatedIron += heroFirstEmission;
+                            accumulatedIron += heroFirstEmission * daysDifference;
                             break;
                         case 'stone':
-                            accumulatedStone += heroFirstEmission;
+                            accumulatedStone += heroFirstEmission * daysDifference;
                             break;
                         case 'wood':
-                            accumulatedWood += heroFirstEmission;
+                            accumulatedWood += heroFirstEmission * daysDifference;
                             break;
                         case 'wheat':
-                            accumulatedWheat += heroFirstEmission;
+                            accumulatedWheat += heroFirstEmission * daysDifference;
                             break;
                         case 'radi':
-                            accumulatedRadi += heroFirstEmission;
+                            accumulatedRadi += heroFirstEmission * daysDifference;
                             break;
                         default:
                             break;
@@ -199,19 +202,19 @@ export class LandService {
 
                     switch (secondResource) {
                         case 'iron':
-                            accumulatedIron += heroSecondEmission;
+                            accumulatedIron += heroSecondEmission * daysDifference;
                             break;
                         case 'stone':
-                            accumulatedStone += heroSecondEmission;
+                            accumulatedStone += heroSecondEmission * daysDifference;
                             break;
                         case 'wood':
-                            accumulatedWood += heroSecondEmission;
+                            accumulatedWood += heroSecondEmission * daysDifference;
                             break;
                         case 'wheat':
-                            accumulatedWheat += heroSecondEmission;
+                            accumulatedWheat += heroSecondEmission * daysDifference;
                             break;
                         case 'radi':
-                            accumulatedRadi += heroSecondEmission;
+                            accumulatedRadi += heroSecondEmission * daysDifference;
                             break;
                         default:
                             break;
@@ -252,6 +255,12 @@ export class LandService {
             accumulatedRadi,
             estimatedGas,
         };
+    }
+
+    daysDifference(date1, date2): number {
+        const difference = date1.getTime() - date2.getTime();
+        const daysDifference = Math.round(difference / (1000 * 3600 * 24));
+        return daysDifference;
     }
 
     cleanLandResource(resource: string): string {
