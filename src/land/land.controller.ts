@@ -1,16 +1,10 @@
-import {
-    Body,
-    Controller,
-    Get,
-    HttpException,
-    Post,
-    Query,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpException, Post, Query } from '@nestjs/common';
 import { LandService } from './land.service';
 import { Land } from './land.entity';
 import { CreateLandDto } from './dto/create-land';
 import { ClaimLandDto } from './dto/claim-land';
 import { SimulateLevelUpDto } from './dto/simulate-level-up';
+import { LevelUpDto } from './dto/level-up';
 
 @Controller('land')
 export class LandController {
@@ -66,9 +60,15 @@ export class LandController {
     }
 
     @Post('level-up-estimation')
-    async getMintEstimation(@Body() body): Promise<any> {
+    async getLevelUpEstimation(@Body() body): Promise<any> {
         const simulateLevelUpDto: SimulateLevelUpDto = body.simulateLevelUpDto;
         return await this.landService.simulateLevelUp(simulateLevelUpDto);
+    }
+
+    @Post('level-up')
+    async getMintEstimation(@Body() body): Promise<any> {
+        const levelUpDto: LevelUpDto = body.levelUpDto;
+        return await this.landService.levelUp(levelUpDto);
     }
 
     @Get()
