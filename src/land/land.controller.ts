@@ -9,7 +9,7 @@ import {
 import { LandService } from './land.service';
 import { Land } from './land.entity';
 import { CreateLandDto } from './dto/create-land';
-import { SimulateClaimDto } from './dto/simulate-claim';
+import { ClaimLandDto } from './dto/claim-land';
 import { SimulateLevelUpDto } from './dto/simulate-level-up';
 
 @Controller('land')
@@ -24,8 +24,14 @@ export class LandController {
 
     @Post('simulate-claim')
     async simulateClaim(@Body() body): Promise<any> {
-        const simulateClaimDto: SimulateClaimDto = body.simulateClaimDto;
+        const simulateClaimDto: ClaimLandDto = body.simulateClaimDto;
         return await this.landService.simulateClaim(simulateClaimDto);
+    }
+
+    @Post('claim')
+    async claim(@Body() body): Promise<any> {
+        const claimLandDto: ClaimLandDto = body.claimLandDto;
+        return await this.landService.claim(claimLandDto);
     }
 
     @Get('per-hero')
