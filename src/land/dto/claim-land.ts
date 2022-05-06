@@ -3,8 +3,9 @@ export interface Land {
     collection: string;
 }
 
-export class SimulateClaimDto {
+export class ClaimLandDto {
     lands: Land[];
     heroNumber: number;
     owner: string;
+    transactionHash?: string = '';
 }

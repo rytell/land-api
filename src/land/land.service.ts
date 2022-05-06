@@ -6,13 +6,16 @@ import { HttpService } from '@nestjs/axios';
 import * as fs from 'fs';
 import { CreateLandDto } from './dto/create-land';
 import { Land } from './land.entity';
-import { Land as LandDto } from './dto/simulate-claim';
-import { SimulateClaimDto } from './dto/simulate-claim';
-import { IRON, LandContract, RADI, RPC_URL, STAKING_LAND, STONE, WHEAT, WOOD } from 'src/constants';
+import { Land as LandDto } from './dto/claim-land';
+import { ClaimLandDto } from './dto/claim-land';
+import { IRON, LandContract, RADI, RPC_URL, SNOWTRACE, STAKING_LAND, STONE, WHEAT, WOOD } from 'src/constants';
 import * as stakeLandAbi from '../constants/abis/stakeLands.json';
 import { SimulateLevelUpDto } from './dto/simulate-level-up';
 import { LevelUpDto } from './dto/level-up';
 import { GeneralTransaction } from './general-transaction.entity';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const Web3 = require('web3');
+import BN from 'bn.js';
 
 interface LevelUpEstimation {
     neededIron: number;
@@ -26,9 +29,8 @@ interface LevelUpEstimation {
     coolDownHasPassed: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const Web3 = require('web3');
 
+const chain = process.env.CHAIN || 43113;
 @Injectable()
 export class LandService {
     constructor(
@@ -37,7 +39,7 @@ export class LandService {
         @InjectRepository(GeneralTransaction)
         private readonly transactionsRepository: Repository<GeneralTransaction>,
         private httpService: HttpService,
-    ) {}
+    ) { }
 
     async create(createLandDto: CreateLandDto): Promise<Land> | undefined {
         const validateErrors = this.validateLandDTO(createLandDto);
@@ -56,9 +58,8 @@ export class LandService {
                     ...landDB,
                     staked: false,
                     staker: createLandDto.staker,
-                    lastStaked: new Date().toUTCString(),
-                    lastUnstaked: new Date().toUTCString(),
-                    updated_at: new Date(new Date().toUTCString()),
+                    lastStaked: new Date().getTime().toString(),
+                    updated_at: new Date(new Date().getTime().toString()),
                 };
                 return this.landsRepository.save(land);
             } else {
@@ -69,8 +70,7 @@ export class LandService {
             const heroType = await this.getHeroType(createLandDto.heroNumber);
 
             landAPI.staked = true;
-            landAPI.lastStaked = new Date().toUTCString();
-            landAPI.lastUnstaked = new Date().toUTCString();
+            landAPI.lastStaked = new Date().getTime().toString();
             landAPI.hero_number = createLandDto.heroNumber;
             landAPI.hero_type = heroType;
             landAPI.staker = createLandDto.staker;
@@ -120,7 +120,7 @@ export class LandService {
         return '';
     }
 
-    async simulateClaim(simulateClaimDto: SimulateClaimDto): Promise<any> {
+    async simulateClaim(simulateClaimDto: ClaimLandDto): Promise<any> {
         const heroLands = await this.getHeroLands({
             owner: simulateClaimDto.owner,
             hero: simulateClaimDto.heroNumber,
@@ -132,82 +132,97 @@ export class LandService {
         let accumulatedRadi = 0;
         await Promise.all(
             simulateClaimDto.lands.map(async (land) => {
-                if (heroLands.filter((e) => +e.landId == land.landId && e.staked == true).length > 0) {
-                    const landDB = await this.landsRepository.findOne({
-                        land_id: land.landId,
-                        collection: land.collection,
-                    });
-                    if (!landDB) {
-                        const createLandDto = new CreateLandDto();
-                        createLandDto.collection = land.collection;
-                        createLandDto.heroNumber = simulateClaimDto.heroNumber;
-                        createLandDto.landId = land.landId;
-                        createLandDto.staker = simulateClaimDto.owner;
-                        this.create(createLandDto);
-                    }
-                    try {
-                        const firstResource = this.cleanLandResource(landDB.resource_a);
-                        const secondResource = this.cleanLandResource(landDB.resource_b);
-                        const firstResourceBasicEmission = this.getBasicEmission(firstResource, 1);
-                        const secondResourceBasicEmission = this.getBasicEmission(secondResource, 1);
-                        const heroFirstEmission = this.getHeroEmission(
-                            landDB.hero_type,
-                            landDB.type.toLowerCase(),
-                            firstResourceBasicEmission,
-                        );
-                        const heroSecondEmission = this.getHeroEmission(
-                            landDB.hero_type,
-                            landDB.type.toLowerCase(),
-                            secondResourceBasicEmission,
-                        );
-                        switch (firstResource) {
-                            case 'iron':
-                                accumulatedIron += heroFirstEmission;
-                                break;
-                            case 'stone':
-                                accumulatedStone += heroFirstEmission;
-                                break;
-                            case 'wood':
-                                accumulatedWood += heroFirstEmission;
-                                break;
-                            case 'wheat':
-                                accumulatedWheat += heroFirstEmission;
-                                break;
-                            case 'radi':
-                                accumulatedRadi += heroFirstEmission;
-                                break;
-                            default:
-                                break;
-                        }
-
-                        switch (secondResource) {
-                            case 'iron':
-                                accumulatedIron += heroSecondEmission;
-                                break;
-                            case 'stone':
-                                accumulatedStone += heroSecondEmission;
-                                break;
-                            case 'wood':
-                                accumulatedWood += heroSecondEmission;
-                                break;
-                            case 'wheat':
-                                accumulatedWheat += heroSecondEmission;
-                                break;
-                            case 'radi':
-                                accumulatedRadi += heroSecondEmission;
-                                break;
-                            default:
-                                break;
-                        }
-                    } catch (error) {
-                        console.log(error);
-                        throw 'One of the lands was not saved in our databases, please retry';
-                    }
+                if (
+                    heroLands.filter(
+                        (e) => +e.landId == land.landId && e.staked == true,
+                    ).length > 0
+                ) {
+                const landDB = await this.landsRepository.findOne({
+                    land_id: land.landId,
+                    collection: land.collection,
+                });
+                if (!landDB) {
+                    const createLandDto = new CreateLandDto();
+                    createLandDto.collection = land.collection;
+                    createLandDto.heroNumber = simulateClaimDto.heroNumber;
+                    createLandDto.landId = land.landId;
+                    createLandDto.staker = simulateClaimDto.owner;
+                    this.create(createLandDto);
                 }
-            }),
+                try {
+                    const lastStaked = +landDB.lastStaked;
+                    const daysDifference = this.daysDifference(
+                        new Date(),
+                        new Date(+lastStaked),
+                    );
+                    const firstResource = this.cleanLandResource(
+                        landDB.resource_a,
+                    );
+                    const secondResource = this.cleanLandResource(
+                        landDB.resource_b,
+                    );
+                    const firstResourceBasicEmission =
+                        this.getBasicEmission(firstResource, 1);
+                    const secondResourceBasicEmission =
+                        this.getBasicEmission(secondResource, 1);
+                    const heroFirstEmission = this.getHeroEmission(
+                        landDB.hero_type,
+                        landDB.type.toLowerCase(),
+                        firstResourceBasicEmission,
+                    );
+                    const heroSecondEmission = this.getHeroEmission(
+                        landDB.hero_type,
+                        landDB.type.toLowerCase(),
+                        secondResourceBasicEmission,
+                    );
+                    switch (firstResource) {
+                        case 'iron':
+                            accumulatedIron += heroFirstEmission * daysDifference;
+                            break;
+                        case 'stone':
+                            accumulatedStone += heroFirstEmission * daysDifference;
+                            break;
+                        case 'wood':
+                            accumulatedWood += heroFirstEmission * daysDifference;
+                            break;
+                        case 'wheat':
+                            accumulatedWheat += heroFirstEmission * daysDifference;
+                            break;
+                        case 'radi':
+                            accumulatedRadi += heroFirstEmission * daysDifference;
+                            break;
+                        default:
+                            break;
+                    }
+
+                    switch (secondResource) {
+                        case 'iron':
+                            accumulatedIron += heroSecondEmission * daysDifference;
+                            break;
+                        case 'stone':
+                            accumulatedStone += heroSecondEmission * daysDifference;
+                            break;
+                        case 'wood':
+                            accumulatedWood += heroSecondEmission * daysDifference;
+                            break;
+                        case 'wheat':
+                            accumulatedWheat += heroSecondEmission * daysDifference;
+                            break;
+                        case 'radi':
+                            accumulatedRadi += heroSecondEmission * daysDifference;
+                            break;
+                        default:
+                            break;
+                    }
+                } catch (error) {
+                    console.log(error);
+                    throw 'One of the lands was not saved in our databases, please retry';
+                }
+            }
+                }
+            ),
         );
         let estimatedGas = 0;
-        const chain = process.env.CHAIN || 43113;
 
         estimatedGas = await this.getMintResourceEstimation({
             to: simulateClaimDto.owner,
@@ -223,6 +238,12 @@ export class LandService {
             accumulatedRadi,
             estimatedGas,
         };
+    }
+
+    daysDifference(date1, date2): number {
+        const difference = date1.getTime() - date2.getTime();
+        const daysDifference = Math.round(difference / (1000 * 3600 * 24));
+        return daysDifference;
     }
 
     cleanLandResource(resource: string): string {
@@ -251,11 +272,241 @@ export class LandService {
         return heroLandEmission;
     }
 
-    async claim(): Promise<any> {}
+    validateClaimTransactionDTO(claimTransactionDto: ClaimLandDto) {
+        const errors = claimTransactionDto.lands.map(land => {
+            if (land.landId != null) {
+                if (+land.landId === 0) {
+                    throw 'Error, landId required';
+                }
+            } else {
+                throw 'Error, landId required';
+            }
+
+            if (claimTransactionDto.transactionHash != null) {
+                if (claimTransactionDto.transactionHash?.trim() === '') {
+                    throw 'Error, hash required';
+                }
+            } else {
+                throw 'Error, hash required';
+            }
+
+            return ''
+        })
+    }
+
+    async claim(claimLandDto: ClaimLandDto): Promise<any> {
+        this.validateClaimTransactionDTO(claimLandDto);
+        try {
+            const resourcesToClaim = await this.simulateClaim(claimLandDto);
+            const searchTx = async () => {
+                const txs = await this.getAccountFromAPI();
+
+                const tx = await txs?.result?.find?.(
+                    (tx) =>
+                        tx.hash.toLowerCase() ===
+                        claimLandDto.transactionHash.toLowerCase(),
+                );
+                return tx;
+            };
+
+            const tx = await this.retryCallbackTimes(searchTx, 15);
+            if (!tx) {
+                throw new HttpException('Tx Not Found', HttpStatus.NOT_FOUND);
+            }
+
+            let claimTransaction = {};
+            const claimTransactionDB =
+                await this.transactionsRepository.findOne({
+                    hash: claimLandDto.transactionHash,
+                    redeemed: false,
+                });
+            if (claimTransactionDB) {
+                claimTransaction = {
+                    ...claimTransactionDB,
+                    hash: claimLandDto.transactionHash,
+                    staker: claimLandDto.owner,
+                    value: tx.value,
+                    redeemed: false,
+                    character: claimLandDto.heroNumber,
+                    accumulatedIron: resourcesToClaim.accumulatedIron,
+                    accumulatedStone: resourcesToClaim.accumulatedStone,
+                    accumulatedWood: resourcesToClaim.accumulatedWood,
+                    accumulatedWheat: resourcesToClaim.accumulatedWheat,
+                    accumulatedRadi: resourcesToClaim.accumulatedRadi,
+                };
+            } else {
+                claimTransaction = {
+                    hash: claimLandDto.transactionHash,
+                    staker: claimLandDto.owner,
+                    value: tx.value,
+                    redeemed: false,
+                    character: claimLandDto.heroNumber,
+                    accumulatedIron: resourcesToClaim.accumulatedIron,
+                    accumulatedStone: resourcesToClaim.accumulatedStone,
+                    accumulatedWood: resourcesToClaim.accumulatedWood,
+                    accumulatedWheat: resourcesToClaim.accumulatedWheat,
+                    accumulatedRadi: resourcesToClaim.accumulatedRadi,
+                };
+            }
+
+            try{
+                const transactionDb =
+                    await this.transactionsRepository.save(
+                        claimTransaction,
+                    );
+    
+                const web3 = new Web3(
+                    new Web3.providers.HttpProvider(RPC_URL[chain]),
+                );
+                const gasPrice = await web3.eth.getGasPrice();
+                const fee = resourcesToClaim.estimatedGas * gasPrice;
+                const percentageDifference =
+                    Math.abs((fee - tx.value) / fee) * 100;
+    
+                if (percentageDifference > 15) {
+                    throw new HttpException(
+                        'Difference from payment and current estimation is too high for us to process the claim.',
+                        HttpStatus.BAD_REQUEST,
+                    );
+                }
+    
+                const tryMintResources = async () => {
+                    const stakeLandContract = await this.getStakeLandContract();
+                    const utils = Web3.utils;
+                    
+                    const address = process.env.DEPLOYER; // INSUFFICIENT ALLOWANCE
+                    const resourceInWei = (amount: number) => utils.toWei(amount.toString());
+                    try {
+                        const mintTransaction = stakeLandContract.methods.mintResources(
+                            [   IRON[chain].address,
+                                STONE[chain].address,
+                                WOOD[chain].address,
+                                WHEAT[chain].address,
+                                RADI[chain].address
+                            ],
+                            [   resourceInWei(resourcesToClaim.accumulatedIron),
+                                resourceInWei(resourcesToClaim.accumulatedStone),
+                                resourceInWei(resourcesToClaim.accumulatedWood),
+                                resourceInWei(resourcesToClaim.accumulatedWheat),
+                                resourceInWei(resourcesToClaim.accumulatedRadi)
+                            ],
+                            claimLandDto.owner
+                        );
+                        try {
+                            const gas = await mintTransaction.estimateGas({
+                                from: address,
+                            });
+                            try {
+                                const gasPrice = await web3.eth.getGasPrice();
+                                const data = mintTransaction.encodeABI();
+                                const nonce =
+                                    await web3.eth.getTransactionCount(address);
+                                const chainId = await web3.eth.net.getId();
+                                const privateKey = process.env.DEPLOYER_PK; // TODO key deployer
+                                const signedTx =
+                                    await web3.eth.accounts.signTransaction(
+                                        {
+                                            to: stakeLandContract.options.address,
+                                            data,
+                                            gas,
+                                            gasPrice,
+                                            nonce,
+                                            chainId,
+                                        },
+                                        privateKey,
+                                    );
+    
+                                await web3.eth.sendSignedTransaction(
+                                    signedTx.rawTransaction,
+                                );
+                            } catch (error) {
+                                // sendError(
+                                //     JSON.stringify({ error, claimHeroDto }),
+                                // );
+                                throw new HttpException(
+                                    error,
+                                    HttpStatus.INTERNAL_SERVER_ERROR,
+                                );
+                            }
+                        } catch (error) {
+                            // sendError(JSON.stringify({ error, claimHeroDto }));
+                            throw new HttpException(
+                                error,
+                                HttpStatus.INTERNAL_SERVER_ERROR,
+                            );
+                        }
+    
+                        transactionDb.redeemed = true;
+                        await this.transactionsRepository.save(
+                            transactionDb,
+                        );
+                        claimLandDto.lands.map( async land => {
+                            const landDB = await this.landsRepository.findOne({
+                                land_id: land.landId,
+                                collection: land.collection,
+                            })
+                            landDB.lastClaim = new Date().getTime().toString(); 
+                            this.landsRepository.save(landDB);
+                        })
+                    } catch (error) {
+                        // sendError(JSON.stringify({ error, claimHeroDto }));
+                        throw new HttpException(
+                            error,
+                            HttpStatus.INTERNAL_SERVER_ERROR,
+                        );
+                    }
+                };
+    
+                await tryMintResources();
+    
+                return {
+                    resourcesToClaim,
+                    tx,
+                    fee,
+                    percentageDifference,
+                    redeemed: transactionDb.redeemed,
+                };
+            }catch{
+                throw new HttpException(
+                    "Transaction could'nt be saved",
+                    HttpStatus.BAD_REQUEST,
+                );
+            }
+
+            
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getAccountFromAPI(): Promise<any> {
+        const snowtraceAPIBaseUrl = SNOWTRACE[chain]
+        const response = await firstValueFrom(
+            this.httpService.get(
+                `${snowtraceAPIBaseUrl}/api?module=account&action=txlist&address=${process.env.DEPLOYER}&startblock=1&endblock=99999999&sort=desc`,
+            ),
+        );
+
+        return response.data;
+    }
+
+    async retryCallbackTimes(callback: any, times: number) {
+        if (times > 0) {
+            const result = await callback();
+            if (result) {
+                return result;
+            } else {
+                console.log('trying again: ', times);
+                return await this.retryCallbackTimes(callback, --times);
+            }
+        } else {
+            return undefined;
+        }
+    }
 
     async simulateLevelUp(simulateLevelUpDto: SimulateLevelUpDto): Promise<LevelUpEstimation> {
         const heroType = await this.getHeroType(simulateLevelUpDto.heroNumber);
-        const heroLands: LandContract[] = await this.getHeroLands({
+        const heroLands = await this.getHeroLands({
             owner: simulateLevelUpDto.owner,
             hero: simulateLevelUpDto.heroNumber,
         });
@@ -514,7 +765,6 @@ export class LandService {
     async getStakeLandContract() {
         const web3 = new Web3(new Web3.providers.HttpProvider(RPC_URL[process.env.CHAIN]));
         const stakeLandsContract = new web3.eth.Contract(stakeLandAbi, STAKING_LAND[process.env.CHAIN || 43113]);
-
         return stakeLandsContract;
     }
 
@@ -639,30 +889,5 @@ export class LandService {
                 from: process.env.DEPLOYER,
             });
         return estimation * 1.2;
-    }
-
-    async getAccountFromAPI(): Promise<any> {
-        const snowtraceAPIBaseUrl = process.env.SNOWTRACEBASEURL;
-        const response = await firstValueFrom(
-            this.httpService.get(
-                `${snowtraceAPIBaseUrl}/api?module=account&action=txlist&address=${process.env.GAME_EMISSIONS_FUND_ADDRESS}&startblock=1&endblock=99999999&sort=desc`,
-            ),
-        );
-
-        return response.data;
-    }
-
-    async retryCallbackTimes(callback: any, times: number) {
-        if (times > 0) {
-            const result = await callback();
-            if (result) {
-                return result;
-            } else {
-                console.log('trying again: ', times);
-                return await this.retryCallbackTimes(callback, --times);
-            }
-        } else {
-            return undefined;
-        }
     }
 }
