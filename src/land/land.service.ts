@@ -6,6 +6,7 @@ import { HttpService } from '@nestjs/axios';
 import * as fs from 'fs';
 import { CreateLandDto } from './dto/create-land';
 import { Land } from './land.entity';
+import { Land as LandDto } from './dto/simulate-claim';
 import { SimulateClaimDto } from './dto/simulate-claim';
 import { IRON, LandContract, RADI, RPC_URL, STAKING_LAND, STONE, WHEAT, WOOD } from 'src/constants';
 import * as stakeLandAbi from '../constants/abis/stakeLands.json';
@@ -16,6 +17,7 @@ import { GeneralTransaction } from './general-transaction.entity';
 interface LevelUpEstimation {
     neededIron: number;
     neededRadi: number;
+    onlyRadi: number;
     neededStone: number;
     neededWheat: number;
     neededWood: number;
@@ -32,6 +34,7 @@ export class LandService {
     constructor(
         @InjectRepository(Land)
         private readonly landsRepository: Repository<Land>,
+        @InjectRepository(GeneralTransaction)
         private readonly transactionsRepository: Repository<GeneralTransaction>,
         private httpService: HttpService,
     ) {}
@@ -261,6 +264,7 @@ export class LandService {
         let neededWood = 0;
         let neededWheat = 0;
         let neededRadi = 0;
+        let onlyRadi = 0;
         let coolDownHasPassed = true;
         await Promise.all(
             simulateLevelUpDto.lands.map(async (land) => {
@@ -293,6 +297,8 @@ export class LandService {
                         case 'wheat':
                             neededWheat += heroFirstEmission * nextLevel;
                             break;
+                        case 'radi':
+                            neededRadi += heroFirstEmission * nextLevel;
                         default:
                             break;
                     }
@@ -310,26 +316,28 @@ export class LandService {
                         case 'wheat':
                             neededWheat += heroSecondEmission * nextLevel;
                             break;
+                        case 'radi':
+                            neededRadi += heroSecondEmission * nextLevel;
                         default:
                             break;
                     }
 
-                    neededRadi += 1000 * (+heroLand.level + 1);
+                    onlyRadi += 1000 * (+heroLand.level + 1);
                 }
             }),
         );
-        // let estimatedGas = 0;
-        // const chain = process.env.CHAIN || 43113;
+        let estimatedGas = 0;
+        const chain = process.env.CHAIN || 43113;
 
-        // estimatedGas = await this.getLevelUpEstimation({
-        //     hero: simulateLevelUpDto.heroNumber,
-        //     owner: simulateLevelUpDto.owner,
-        //     whoPays: simulateLevelUpDto.owner,
-        //     amounts: [neededIron, neededStone, neededWheat, neededWood, neededRadi],
-        //     resources: [IRON[chain].address, STONE[chain].address, WHEAT[chain].address, WOOD[chain].address, RADI[chain].address],
-        // });
+        estimatedGas = await this.getLevelUpEstimation({
+            hero: simulateLevelUpDto.heroNumber,
+            owner: simulateLevelUpDto.owner,
+            whoPays: process.env.DEPLOYER, // in purpose of letting anyone estimate how much is needed to level up
+            amounts: [neededIron, neededStone, neededWheat, neededWood, onlyRadi],
+            resources: [IRON[chain].address, STONE[chain].address, WHEAT[chain].address, WOOD[chain].address, RADI[chain].address],
+        });
 
-        // const avaxProcessingFee = await this.getAvaxFeeFromGasUnits(estimatedGas);
+        const avaxProcessingFee = await this.getAvaxFeeFromGasUnits(estimatedGas);
 
         return {
             neededIron,
@@ -337,8 +345,9 @@ export class LandService {
             neededStone,
             neededWheat,
             neededWood,
-            estimatedGas: 2000000,
-            avaxProcessingFee: 100000000000000000, // hardcoded 0.1 AVAX for testing purposes
+            onlyRadi,
+            estimatedGas,
+            avaxProcessingFee,
             coolDownHasPassed,
         };
     }
@@ -346,6 +355,8 @@ export class LandService {
     async levelUp(levelUpDto: LevelUpDto): Promise<any> {
         try {
             const estimation = await this.simulateLevelUp(levelUpDto);
+
+            // did user pay gas?
             const searchTx = async () => {
                 const txs = await this.getAccountFromAPI();
 
@@ -365,32 +376,26 @@ export class LandService {
                 hash: levelUpDto.transactionHash,
                 redeemed: false,
             });
+            const baseTxObject = {
+                hash: levelUpDto.transactionHash,
+                staker: levelUpDto.owner,
+                value: tx.value,
+                redeemed: false,
+                character: levelUpDto.heroNumber,
+                radiValue: levelUpDto.onlyRadi ? estimation.onlyRadi : estimation.neededRadi,
+                ironValue: levelUpDto.onlyRadi ? 0 : estimation.neededIron,
+                stoneValue: levelUpDto.onlyRadi ? 0 : estimation.neededStone,
+                woodValue: levelUpDto.onlyRadi ? 0 : estimation.neededWood,
+                wheatValue: levelUpDto.onlyRadi ? 0 : estimation.neededWheat,
+            };
             if (levelUpTransactionDb) {
                 levelUpTransaction = {
                     ...levelUpTransactionDb,
-                    hash: levelUpDto.transactionHash,
-                    staker: levelUpDto.owner,
-                    value: tx.value,
-                    redeemed: false,
-                    character: levelUpDto.heroNumber,
-                    radiValue: estimation.neededRadi,
-                    ironValue: estimation.neededIron,
-                    stoneValue: estimation.stoneValue,
-                    woodValue: estimation.woodValue,
-                    wheatValue: estimation.wheatValue,
+                    ...baseTxObject,
                 };
             } else {
                 levelUpTransaction = {
-                    hash: levelUpDto.transactionHash,
-                    staker: levelUpDto.owner,
-                    value: tx.value,
-                    redeemed: false,
-                    character: levelUpDto.heroNumber,
-                    radiValue: estimation.neededRadi,
-                    ironValue: estimation.neededIron,
-                    stoneValue: estimation.stoneValue,
-                    woodValue: estimation.woodValue,
-                    wheatValue: estimation.wheatValue,
+                    ...baseTxObject,
                     type: 'LEVEL_UP',
                 };
             }
@@ -405,7 +410,7 @@ export class LandService {
 
                 if (percentageDifference > 15) {
                     throw new HttpException(
-                        'Difference from payment and current estimation is too high for us to process the claim.',
+                        'Difference from payment and current estimation is too high for us to process the level up.',
                         HttpStatus.BAD_REQUEST,
                     );
                 }
@@ -422,11 +427,11 @@ export class LandService {
                         const levelUpTx = stakeLandsContract.methods.levelHeroLandsUp(
                             [IRON[chain].address, STONE[chain].address, WOOD[chain].address, WHEAT[chain].address, RADI[chain].address],
                             [
-                                resourceInWei(estimation.neededIron),
-                                resourceInWei(estimation.neededStone),
-                                resourceInWei(estimation.neededWood),
-                                resourceInWei(estimation.neededWheat),
-                                resourceInWei(estimation.neededRadi),
+                                resourceInWei(levelUpDto.onlyRadi ? 0 : estimation.neededIron),
+                                resourceInWei(levelUpDto.onlyRadi ? 0 : estimation.neededStone),
+                                resourceInWei(levelUpDto.onlyRadi ? 0 : estimation.neededWood),
+                                resourceInWei(levelUpDto.onlyRadi ? 0 : estimation.neededWheat),
+                                resourceInWei(levelUpDto.onlyRadi ? estimation.onlyRadi : estimation.neededRadi),
                             ],
                         );
                         try {
@@ -464,9 +469,7 @@ export class LandService {
                         transactionDb.redeemed = true;
                         await this.transactionsRepository.save(transactionDb);
 
-                        // TOOD: mark last claim on each land
-                        // hero.lastClaim = new Date().getTime().toString();
-                        // this.herosRepository.save(hero);
+                        await this.markLastClaimOnLands(levelUpDto.lands);
                     } catch (error) {
                         // sendError(JSON.stringify({ error, claimHeroDto }));
                         throw new HttpException(error, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -491,7 +494,22 @@ export class LandService {
         }
     }
 
-    async markLastClaimOnLands() {}
+    async markLastClaimOnLands(lands: LandDto[]) {
+        const date = new Date().getDate();
+        await Promise.all(
+            lands.map(async (land) => {
+                const landDB = await this.landsRepository.findOne({
+                    land_id: land.landId,
+                    collection: land.collection,
+                });
+
+                if (landDB) {
+                    landDB.lastClaim = date.toString();
+                    await this.landsRepository.save(landDB);
+                }
+            }),
+        );
+    }
 
     async getStakeLandContract() {
         const web3 = new Web3(new Web3.providers.HttpProvider(RPC_URL[process.env.CHAIN]));
