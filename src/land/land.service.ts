@@ -242,6 +242,7 @@ export class LandService {
 
     daysDifference(date1, date2): number {
         const difference = date1.getTime() - date2.getTime();
+
         const daysDifference = Math.floor(difference / (1000 * 3600 * 24));
         return daysDifference;
     }
@@ -785,10 +786,6 @@ export class LandService {
         const rawdata = fs.readFileSync('basicEmissions.json');
         const basicEmissions = JSON.parse(rawdata.toString());
         return +basicEmissions[resource][level - 1];
-    }
-
-    test(): any {
-        return '';
     }
 
     async getHeroLands({ owner, hero }: { owner: string; hero: number }): Promise<LandContract[]> {
