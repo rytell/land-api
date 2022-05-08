@@ -34,18 +34,9 @@ export class Land extends BaseEntity {
     @Column({ nullable: false })
     resource_b_value: number;
 
-    @Column({ nullable: false })
-    staked: boolean;
-
     @Column({ nullable: true })
     staker: string;
 
     @Column({ nullable: true })
     lastClaim: string;
-
-    @Column({ nullable: true })
-    lastStaked: string;
-
-    @Column({ nullable: true })
-    lastUnstaked: string;
 }

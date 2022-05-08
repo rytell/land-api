@@ -45,36 +45,12 @@ export class LandService {
         if (validateErrors.length > 0) {
             throw validateErrors;
         }
-
-        const landDB = await this.landsRepository.findOne({
-            land_id: createLandDto.landId,
-            collection: createLandDto.collection.toString(),
-        });
-
-        if (landDB) {
-            if (landDB?.lastStaked < '1' || landDB?.lastUnstaked < '1') {
-                const land: Land = {
-                    ...landDB,
-                    staked: false,
-                    staker: createLandDto.staker,
-                    lastStaked: new Date().getTime().toString(),
-                    updated_at: new Date(new Date().getTime().toString()),
-                };
-                return this.landsRepository.save(land);
-            } else {
-                return landDB;
-            }
-        } else {
-            const landAPI = await this.getLandMetadata(createLandDto.landId, createLandDto.collection, createLandDto.staker);
-            const heroType = await this.getHeroType(createLandDto.heroNumber);
-
-            landAPI.staked = true;
-            landAPI.lastStaked = new Date().getTime().toString();
-            landAPI.hero_number = createLandDto.heroNumber;
-            landAPI.hero_type = heroType;
-            landAPI.staker = createLandDto.staker;
-            return this.landsRepository.save(landAPI);
-        }
+        const landAPI = await this.getLandMetadata(createLandDto.landId, createLandDto.collection, createLandDto.staker);
+        const heroType = await this.getHeroType(createLandDto.heroNumber);
+        landAPI.hero_number = createLandDto.heroNumber;
+        landAPI.hero_type = heroType;
+        landAPI.staker = createLandDto.staker;
+        return this.landsRepository.save(landAPI);
     }
 
     async getLandMetadata(landId: number, collection: string, staker = ''): Promise<Land> {
@@ -122,7 +98,7 @@ export class LandService {
     async simulateClaim(simulateClaimDto: ClaimLandDto): Promise<any> {
         const heroLands = await this.getHeroLands({
             owner: simulateClaimDto.owner,
-            hero: simulateClaimDto.heroNumber,
+            hero: +simulateClaimDto.heroNumber,
         });
         let accumulatedIron = 0;
         let accumulatedStone = 0;
@@ -131,79 +107,94 @@ export class LandService {
         let accumulatedRadi = 0;
         await Promise.all(
             simulateClaimDto.lands.map(async (land) => {
-                if (heroLands.filter((e) => +e.landId == land.landId && e.staked == true).length > 0) {
-                    const landDB = await this.landsRepository.findOne({
-                        land_id: land.landId,
-                        collection: land.collection,
-                    });
-                    if (!landDB) {
-                        const createLandDto = new CreateLandDto();
-                        createLandDto.collection = land.collection;
-                        createLandDto.heroNumber = simulateClaimDto.heroNumber;
-                        createLandDto.landId = land.landId;
-                        createLandDto.staker = simulateClaimDto.owner;
-                        this.create(createLandDto);
+                const heroLand = heroLands.find((_heroLand) => _heroLand.landId.toString() === land.landId.toString() && _heroLand.staked);
+                if (heroLand) {
+                let landDB = await this.landsRepository.findOne({
+                    land_id: land.landId,
+                    collection: land.collection,
+                });
+                if (!landDB) {
+                    const createLandDto = new CreateLandDto();
+                    createLandDto.collection = land.collection;
+                    createLandDto.heroNumber = simulateClaimDto.heroNumber;
+                    createLandDto.landId = land.landId;
+                    createLandDto.staker = simulateClaimDto.owner;
+                    landDB = await this.create(createLandDto);
+                }
+                try {
+                    const lastStaked = heroLand.lastStaked + '000';
+                    const currentDate =
+                        lastStaked > landDB.lastClaim
+                            ? lastStaked
+                            : landDB.lastClaim;
+                    const daysDifference = this.daysDifference(
+                        new Date(),
+                        new Date(+currentDate),
+                    );
+                    const firstResource = this.cleanLandResource(
+                        landDB.resource_a,
+                    );
+                    const secondResource = this.cleanLandResource(
+                        landDB.resource_b,
+                    );
+                    const firstResourceBasicEmission =
+                        this.getBasicEmission(firstResource, +heroLand.level);
+                    const secondResourceBasicEmission =
+                        this.getBasicEmission(secondResource, +heroLand.level);
+                    const heroFirstEmission = this.getHeroEmission(
+                        landDB.hero_type,
+                        landDB.type.toLowerCase(),
+                        firstResourceBasicEmission,
+                    );
+                    const heroSecondEmission = this.getHeroEmission(
+                        landDB.hero_type,
+                        landDB.type.toLowerCase(),
+                        secondResourceBasicEmission,
+                    );
+                    
+                    switch (firstResource) {
+                        case 'iron':
+                            accumulatedIron += heroFirstEmission * daysDifference;
+                            break;
+                        case 'stone':
+                            accumulatedStone += heroFirstEmission * daysDifference;
+                            break;
+                        case 'wood':
+                            accumulatedWood += heroFirstEmission * daysDifference;
+                            break;
+                        case 'wheat':
+                            accumulatedWheat += heroFirstEmission * daysDifference;
+                            break;
+                        case 'radi':
+                            accumulatedRadi += heroFirstEmission * daysDifference;
+                            break;
+                        default:
+                            break;
                     }
-                    try {
-                        const lastStaked = +landDB.lastStaked;
-                        const daysDifference = this.daysDifference(new Date(), new Date(+lastStaked));
-                        const firstResource = this.cleanLandResource(landDB.resource_a);
-                        const secondResource = this.cleanLandResource(landDB.resource_b);
-                        const firstResourceBasicEmission = this.getBasicEmission(firstResource, 1);
-                        const secondResourceBasicEmission = this.getBasicEmission(secondResource, 1);
-                        const heroFirstEmission = this.getHeroEmission(
-                            landDB.hero_type,
-                            landDB.type.toLowerCase(),
-                            firstResourceBasicEmission,
-                        );
-                        const heroSecondEmission = this.getHeroEmission(
-                            landDB.hero_type,
-                            landDB.type.toLowerCase(),
-                            secondResourceBasicEmission,
-                        );
-                        switch (firstResource) {
-                            case 'iron':
-                                accumulatedIron += heroFirstEmission * daysDifference;
-                                break;
-                            case 'stone':
-                                accumulatedStone += heroFirstEmission * daysDifference;
-                                break;
-                            case 'wood':
-                                accumulatedWood += heroFirstEmission * daysDifference;
-                                break;
-                            case 'wheat':
-                                accumulatedWheat += heroFirstEmission * daysDifference;
-                                break;
-                            case 'radi':
-                                accumulatedRadi += heroFirstEmission * daysDifference;
-                                break;
-                            default:
-                                break;
-                        }
 
-                        switch (secondResource) {
-                            case 'iron':
-                                accumulatedIron += heroSecondEmission * daysDifference;
-                                break;
-                            case 'stone':
-                                accumulatedStone += heroSecondEmission * daysDifference;
-                                break;
-                            case 'wood':
-                                accumulatedWood += heroSecondEmission * daysDifference;
-                                break;
-                            case 'wheat':
-                                accumulatedWheat += heroSecondEmission * daysDifference;
-                                break;
-                            case 'radi':
-                                accumulatedRadi += heroSecondEmission * daysDifference;
-                                break;
-                            default:
-                                break;
-                        }
-                    } catch (error) {
-                        console.log(error);
-                        throw 'One of the lands was not saved in our databases, please retry';
+                    switch (secondResource) {
+                        case 'iron':
+                            accumulatedIron += heroSecondEmission * daysDifference;
+                            break;
+                        case 'stone':
+                            accumulatedStone += heroSecondEmission * daysDifference;
+                            break;
+                        case 'wood':
+                            accumulatedWood += heroSecondEmission * daysDifference;
+                            break;
+                        case 'wheat':
+                            accumulatedWheat += heroSecondEmission * daysDifference;
+                            break;
+                        case 'radi':
+                            accumulatedRadi += heroSecondEmission * daysDifference;
+                            break;
+                        default:
+                            break;
                     }
+                } catch (error) {
+                    console.log(error);
+                    throw 'One of the lands was not saved in our databases, please retry';
+                }
                 }
             }),
         );
@@ -309,11 +300,11 @@ export class LandService {
                     value: tx.value,
                     redeemed: false,
                     character: claimLandDto.heroNumber,
-                    accumulatedIron: resourcesToClaim.accumulatedIron,
-                    accumulatedStone: resourcesToClaim.accumulatedStone,
-                    accumulatedWood: resourcesToClaim.accumulatedWood,
-                    accumulatedWheat: resourcesToClaim.accumulatedWheat,
-                    accumulatedRadi: resourcesToClaim.accumulatedRadi,
+                    ironValue: resourcesToClaim.accumulatedIron,
+                    stoneValue: resourcesToClaim.accumulatedStone,
+                    woodValue: resourcesToClaim.accumulatedWood,
+                    wheatValue: resourcesToClaim.accumulatedWheat,
+                    radiValue: resourcesToClaim.accumulatedRadi,
                 };
             } else {
                 claimTransaction = {
@@ -321,12 +312,13 @@ export class LandService {
                     staker: claimLandDto.owner,
                     value: tx.value,
                     redeemed: false,
+                    transactionType: 'claim',
                     character: claimLandDto.heroNumber,
-                    accumulatedIron: resourcesToClaim.accumulatedIron,
-                    accumulatedStone: resourcesToClaim.accumulatedStone,
-                    accumulatedWood: resourcesToClaim.accumulatedWood,
-                    accumulatedWheat: resourcesToClaim.accumulatedWheat,
-                    accumulatedRadi: resourcesToClaim.accumulatedRadi,
+                    ironValue: resourcesToClaim.accumulatedIron,
+                    stoneValue: resourcesToClaim.accumulatedStone,
+                    woodValue: resourcesToClaim.accumulatedWood,
+                    wheatValue: resourcesToClaim.accumulatedWheat,
+                    radiValue: resourcesToClaim.accumulatedRadi,
                 };
             }
 
@@ -745,7 +737,7 @@ export class LandService {
         while (true) {
             try {
                 const rawResponse: LandContract = await stakeLandsContract.methods.stakedLands(owner, index).call();
-                if (+rawResponse.heroId === hero) {
+                if (+rawResponse.heroId == hero) {
                     lands.push(rawResponse);
                 }
             } catch (error) {
