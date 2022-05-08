@@ -109,92 +109,80 @@ export class LandService {
             simulateClaimDto.lands.map(async (land) => {
                 const heroLand = heroLands.find((_heroLand) => _heroLand.landId.toString() === land.landId.toString() && _heroLand.staked);
                 if (heroLand) {
-                let landDB = await this.landsRepository.findOne({
-                    land_id: land.landId,
-                    collection: land.collection,
-                });
-                if (!landDB) {
-                    const createLandDto = new CreateLandDto();
-                    createLandDto.collection = land.collection;
-                    createLandDto.heroNumber = simulateClaimDto.heroNumber;
-                    createLandDto.landId = land.landId;
-                    createLandDto.staker = simulateClaimDto.owner;
-                    landDB = await this.create(createLandDto);
-                }
-                try {
-                    const lastStaked = heroLand.lastStaked + '000';
-                    const currentDate =
-                        lastStaked > landDB.lastClaim
-                            ? lastStaked
-                            : landDB.lastClaim;
-                    const daysDifference = this.daysDifference(
-                        new Date(),
-                        new Date(+currentDate),
-                    );
-                    const firstResource = this.cleanLandResource(
-                        landDB.resource_a,
-                    );
-                    const secondResource = this.cleanLandResource(
-                        landDB.resource_b,
-                    );
-                    const firstResourceBasicEmission =
-                        this.getBasicEmission(firstResource, +heroLand.level);
-                    const secondResourceBasicEmission =
-                        this.getBasicEmission(secondResource, +heroLand.level);
-                    const heroFirstEmission = this.getHeroEmission(
-                        landDB.hero_type,
-                        landDB.type.toLowerCase(),
-                        firstResourceBasicEmission,
-                    );
-                    const heroSecondEmission = this.getHeroEmission(
-                        landDB.hero_type,
-                        landDB.type.toLowerCase(),
-                        secondResourceBasicEmission,
-                    );
-                    
-                    switch (firstResource) {
-                        case 'iron':
-                            accumulatedIron += heroFirstEmission * daysDifference;
-                            break;
-                        case 'stone':
-                            accumulatedStone += heroFirstEmission * daysDifference;
-                            break;
-                        case 'wood':
-                            accumulatedWood += heroFirstEmission * daysDifference;
-                            break;
-                        case 'wheat':
-                            accumulatedWheat += heroFirstEmission * daysDifference;
-                            break;
-                        case 'radi':
-                            accumulatedRadi += heroFirstEmission * daysDifference;
-                            break;
-                        default:
-                            break;
+                    let landDB = await this.landsRepository.findOne({
+                        land_id: land.landId,
+                        collection: land.collection,
+                    });
+                    if (!landDB) {
+                        const createLandDto = new CreateLandDto();
+                        createLandDto.collection = land.collection;
+                        createLandDto.heroNumber = simulateClaimDto.heroNumber;
+                        createLandDto.landId = land.landId;
+                        createLandDto.staker = simulateClaimDto.owner;
+                        landDB = await this.create(createLandDto);
                     }
+                    try {
+                        const lastStaked = heroLand.lastStaked + '000';
+                        const currentDate = lastStaked > landDB.lastClaim ? lastStaked : landDB.lastClaim;
+                        const daysDifference = this.daysDifference(new Date(), new Date(+currentDate));
+                        const firstResource = this.cleanLandResource(landDB.resource_a);
+                        const secondResource = this.cleanLandResource(landDB.resource_b);
+                        const firstResourceBasicEmission = this.getBasicEmission(firstResource, +heroLand.level);
+                        const secondResourceBasicEmission = this.getBasicEmission(secondResource, +heroLand.level);
+                        const heroFirstEmission = this.getHeroEmission(
+                            landDB.hero_type,
+                            landDB.type.toLowerCase(),
+                            firstResourceBasicEmission,
+                        );
+                        const heroSecondEmission = this.getHeroEmission(
+                            landDB.hero_type,
+                            landDB.type.toLowerCase(),
+                            secondResourceBasicEmission,
+                        );
 
-                    switch (secondResource) {
-                        case 'iron':
-                            accumulatedIron += heroSecondEmission * daysDifference;
-                            break;
-                        case 'stone':
-                            accumulatedStone += heroSecondEmission * daysDifference;
-                            break;
-                        case 'wood':
-                            accumulatedWood += heroSecondEmission * daysDifference;
-                            break;
-                        case 'wheat':
-                            accumulatedWheat += heroSecondEmission * daysDifference;
-                            break;
-                        case 'radi':
-                            accumulatedRadi += heroSecondEmission * daysDifference;
-                            break;
-                        default:
-                            break;
+                        switch (firstResource) {
+                            case 'iron':
+                                accumulatedIron += heroFirstEmission * daysDifference;
+                                break;
+                            case 'stone':
+                                accumulatedStone += heroFirstEmission * daysDifference;
+                                break;
+                            case 'wood':
+                                accumulatedWood += heroFirstEmission * daysDifference;
+                                break;
+                            case 'wheat':
+                                accumulatedWheat += heroFirstEmission * daysDifference;
+                                break;
+                            case 'radi':
+                                accumulatedRadi += heroFirstEmission * daysDifference;
+                                break;
+                            default:
+                                break;
+                        }
+
+                        switch (secondResource) {
+                            case 'iron':
+                                accumulatedIron += heroSecondEmission * daysDifference;
+                                break;
+                            case 'stone':
+                                accumulatedStone += heroSecondEmission * daysDifference;
+                                break;
+                            case 'wood':
+                                accumulatedWood += heroSecondEmission * daysDifference;
+                                break;
+                            case 'wheat':
+                                accumulatedWheat += heroSecondEmission * daysDifference;
+                                break;
+                            case 'radi':
+                                accumulatedRadi += heroSecondEmission * daysDifference;
+                                break;
+                            default:
+                                break;
+                        }
+                    } catch (error) {
+                        console.log(error);
+                        throw 'One of the lands was not saved in our databases, please retry';
                     }
-                } catch (error) {
-                    console.log(error);
-                    throw 'One of the lands was not saved in our databases, please retry';
-                }
                 }
             }),
         );
@@ -206,6 +194,8 @@ export class LandService {
             resources: [IRON[chain].address, STONE[chain].address, WHEAT[chain].address, WOOD[chain].address, RADI[chain].address],
         });
 
+        const avaxProcessingFee = await this.getAvaxFeeFromGasUnits(estimatedGas);
+
         return {
             accumulatedIron,
             accumulatedStone,
@@ -213,6 +203,7 @@ export class LandService {
             accumulatedWheat,
             accumulatedRadi,
             estimatedGas,
+            avaxProcessingFee,
         };
     }
 
