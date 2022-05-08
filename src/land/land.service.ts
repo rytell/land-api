@@ -29,7 +29,6 @@ interface LevelUpEstimation {
     coolDownHasPassed: boolean;
 }
 
-
 const chain = process.env.CHAIN || 43113;
 @Injectable()
 export class LandService {
@@ -39,7 +38,7 @@ export class LandService {
         @InjectRepository(GeneralTransaction)
         private readonly transactionsRepository: Repository<GeneralTransaction>,
         private httpService: HttpService,
-    ) { }
+    ) {}
 
     async create(createLandDto: CreateLandDto): Promise<Land> | undefined {
         const validateErrors = this.validateLandDTO(createLandDto);
@@ -132,95 +131,81 @@ export class LandService {
         let accumulatedRadi = 0;
         await Promise.all(
             simulateClaimDto.lands.map(async (land) => {
-                if (
-                    heroLands.filter(
-                        (e) => +e.landId == land.landId && e.staked == true,
-                    ).length > 0
-                ) {
-                const landDB = await this.landsRepository.findOne({
-                    land_id: land.landId,
-                    collection: land.collection,
-                });
-                if (!landDB) {
-                    const createLandDto = new CreateLandDto();
-                    createLandDto.collection = land.collection;
-                    createLandDto.heroNumber = simulateClaimDto.heroNumber;
-                    createLandDto.landId = land.landId;
-                    createLandDto.staker = simulateClaimDto.owner;
-                    this.create(createLandDto);
-                }
-                try {
-                    const lastStaked = +landDB.lastStaked;
-                    const daysDifference = this.daysDifference(
-                        new Date(),
-                        new Date(+lastStaked),
-                    );
-                    const firstResource = this.cleanLandResource(
-                        landDB.resource_a,
-                    );
-                    const secondResource = this.cleanLandResource(
-                        landDB.resource_b,
-                    );
-                    const firstResourceBasicEmission =
-                        this.getBasicEmission(firstResource, 1);
-                    const secondResourceBasicEmission =
-                        this.getBasicEmission(secondResource, 1);
-                    const heroFirstEmission = this.getHeroEmission(
-                        landDB.hero_type,
-                        landDB.type.toLowerCase(),
-                        firstResourceBasicEmission,
-                    );
-                    const heroSecondEmission = this.getHeroEmission(
-                        landDB.hero_type,
-                        landDB.type.toLowerCase(),
-                        secondResourceBasicEmission,
-                    );
-                    switch (firstResource) {
-                        case 'iron':
-                            accumulatedIron += heroFirstEmission * daysDifference;
-                            break;
-                        case 'stone':
-                            accumulatedStone += heroFirstEmission * daysDifference;
-                            break;
-                        case 'wood':
-                            accumulatedWood += heroFirstEmission * daysDifference;
-                            break;
-                        case 'wheat':
-                            accumulatedWheat += heroFirstEmission * daysDifference;
-                            break;
-                        case 'radi':
-                            accumulatedRadi += heroFirstEmission * daysDifference;
-                            break;
-                        default:
-                            break;
+                if (heroLands.filter((e) => +e.landId == land.landId && e.staked == true).length > 0) {
+                    const landDB = await this.landsRepository.findOne({
+                        land_id: land.landId,
+                        collection: land.collection,
+                    });
+                    if (!landDB) {
+                        const createLandDto = new CreateLandDto();
+                        createLandDto.collection = land.collection;
+                        createLandDto.heroNumber = simulateClaimDto.heroNumber;
+                        createLandDto.landId = land.landId;
+                        createLandDto.staker = simulateClaimDto.owner;
+                        this.create(createLandDto);
                     }
+                    try {
+                        const lastStaked = +landDB.lastStaked;
+                        const daysDifference = this.daysDifference(new Date(), new Date(+lastStaked));
+                        const firstResource = this.cleanLandResource(landDB.resource_a);
+                        const secondResource = this.cleanLandResource(landDB.resource_b);
+                        const firstResourceBasicEmission = this.getBasicEmission(firstResource, 1);
+                        const secondResourceBasicEmission = this.getBasicEmission(secondResource, 1);
+                        const heroFirstEmission = this.getHeroEmission(
+                            landDB.hero_type,
+                            landDB.type.toLowerCase(),
+                            firstResourceBasicEmission,
+                        );
+                        const heroSecondEmission = this.getHeroEmission(
+                            landDB.hero_type,
+                            landDB.type.toLowerCase(),
+                            secondResourceBasicEmission,
+                        );
+                        switch (firstResource) {
+                            case 'iron':
+                                accumulatedIron += heroFirstEmission * daysDifference;
+                                break;
+                            case 'stone':
+                                accumulatedStone += heroFirstEmission * daysDifference;
+                                break;
+                            case 'wood':
+                                accumulatedWood += heroFirstEmission * daysDifference;
+                                break;
+                            case 'wheat':
+                                accumulatedWheat += heroFirstEmission * daysDifference;
+                                break;
+                            case 'radi':
+                                accumulatedRadi += heroFirstEmission * daysDifference;
+                                break;
+                            default:
+                                break;
+                        }
 
-                    switch (secondResource) {
-                        case 'iron':
-                            accumulatedIron += heroSecondEmission * daysDifference;
-                            break;
-                        case 'stone':
-                            accumulatedStone += heroSecondEmission * daysDifference;
-                            break;
-                        case 'wood':
-                            accumulatedWood += heroSecondEmission * daysDifference;
-                            break;
-                        case 'wheat':
-                            accumulatedWheat += heroSecondEmission * daysDifference;
-                            break;
-                        case 'radi':
-                            accumulatedRadi += heroSecondEmission * daysDifference;
-                            break;
-                        default:
-                            break;
+                        switch (secondResource) {
+                            case 'iron':
+                                accumulatedIron += heroSecondEmission * daysDifference;
+                                break;
+                            case 'stone':
+                                accumulatedStone += heroSecondEmission * daysDifference;
+                                break;
+                            case 'wood':
+                                accumulatedWood += heroSecondEmission * daysDifference;
+                                break;
+                            case 'wheat':
+                                accumulatedWheat += heroSecondEmission * daysDifference;
+                                break;
+                            case 'radi':
+                                accumulatedRadi += heroSecondEmission * daysDifference;
+                                break;
+                            default:
+                                break;
+                        }
+                    } catch (error) {
+                        console.log(error);
+                        throw 'One of the lands was not saved in our databases, please retry';
                     }
-                } catch (error) {
-                    console.log(error);
-                    throw 'One of the lands was not saved in our databases, please retry';
                 }
-            }
-                }
-            ),
+            }),
         );
         let estimatedGas = 0;
 
@@ -274,7 +259,7 @@ export class LandService {
     }
 
     validateClaimTransactionDTO(claimTransactionDto: ClaimLandDto) {
-        const errors = claimTransactionDto.lands.map(land => {
+        const errors = claimTransactionDto.lands.map((land) => {
             if (land.landId != null) {
                 if (+land.landId === 0) {
                     throw 'Error, landId required';
@@ -291,8 +276,8 @@ export class LandService {
                 throw 'Error, hash required';
             }
 
-            return ''
-        })
+            return '';
+        });
     }
 
     async claim(claimLandDto: ClaimLandDto): Promise<any> {
@@ -302,11 +287,7 @@ export class LandService {
             const searchTx = async () => {
                 const txs = await this.getAccountFromAPI();
 
-                const tx = await txs?.result?.find?.(
-                    (tx) =>
-                        tx.hash.toLowerCase() ===
-                        claimLandDto.transactionHash.toLowerCase(),
-                );
+                const tx = await txs?.result?.find?.((tx) => tx.hash.toLowerCase() === claimLandDto.transactionHash.toLowerCase());
                 return tx;
             };
 
@@ -316,11 +297,10 @@ export class LandService {
             }
 
             let claimTransaction = {};
-            const claimTransactionDB =
-                await this.transactionsRepository.findOne({
-                    hash: claimLandDto.transactionHash,
-                    redeemed: false,
-                });
+            const claimTransactionDB = await this.transactionsRepository.findOne({
+                hash: claimLandDto.transactionHash,
+                redeemed: false,
+            });
             if (claimTransactionDB) {
                 claimTransaction = {
                     ...claimTransactionDB,
@@ -350,48 +330,38 @@ export class LandService {
                 };
             }
 
-            try{
-                const transactionDb =
-                    await this.transactionsRepository.save(
-                        claimTransaction,
-                    );
-    
-                const web3 = new Web3(
-                    new Web3.providers.HttpProvider(RPC_URL[chain]),
-                );
+            try {
+                const transactionDb = await this.transactionsRepository.save(claimTransaction);
+
+                const web3 = new Web3(new Web3.providers.HttpProvider(RPC_URL[chain]));
                 const gasPrice = await web3.eth.getGasPrice();
                 const fee = resourcesToClaim.estimatedGas * gasPrice;
-                const percentageDifference =
-                    Math.abs((fee - tx.value) / fee) * 100;
-    
+                const percentageDifference = Math.abs((fee - tx.value) / fee) * 100;
+
                 if (percentageDifference > 15) {
                     throw new HttpException(
                         'Difference from payment and current estimation is too high for us to process the claim.',
                         HttpStatus.BAD_REQUEST,
                     );
                 }
-    
+
                 const tryMintResources = async () => {
                     const stakeLandContract = await this.getStakeLandContract();
                     const utils = Web3.utils;
-                    
+
                     const address = process.env.DEPLOYER; // INSUFFICIENT ALLOWANCE
                     const resourceInWei = (amount: number) => utils.toWei(amount.toString());
                     try {
                         const mintTransaction = stakeLandContract.methods.mintResources(
-                            [   IRON[chain].address,
-                                STONE[chain].address,
-                                WOOD[chain].address,
-                                WHEAT[chain].address,
-                                RADI[chain].address
-                            ],
-                            [   resourceInWei(resourcesToClaim.accumulatedIron),
+                            [IRON[chain].address, STONE[chain].address, WOOD[chain].address, WHEAT[chain].address, RADI[chain].address],
+                            [
+                                resourceInWei(resourcesToClaim.accumulatedIron),
                                 resourceInWei(resourcesToClaim.accumulatedStone),
                                 resourceInWei(resourcesToClaim.accumulatedWood),
                                 resourceInWei(resourcesToClaim.accumulatedWheat),
-                                resourceInWei(resourcesToClaim.accumulatedRadi)
+                                resourceInWei(resourcesToClaim.accumulatedRadi),
                             ],
-                            claimLandDto.owner
+                            claimLandDto.owner,
                         );
                         try {
                             const gas = await mintTransaction.estimateGas({
@@ -400,66 +370,51 @@ export class LandService {
                             try {
                                 const gasPrice = await web3.eth.getGasPrice();
                                 const data = mintTransaction.encodeABI();
-                                const nonce =
-                                    await web3.eth.getTransactionCount(address);
+                                const nonce = await web3.eth.getTransactionCount(address);
                                 const chainId = await web3.eth.net.getId();
                                 const privateKey = process.env.DEPLOYER_PK; // TODO key deployer
-                                const signedTx =
-                                    await web3.eth.accounts.signTransaction(
-                                        {
-                                            to: stakeLandContract.options.address,
-                                            data,
-                                            gas,
-                                            gasPrice,
-                                            nonce,
-                                            chainId,
-                                        },
-                                        privateKey,
-                                    );
-    
-                                await web3.eth.sendSignedTransaction(
-                                    signedTx.rawTransaction,
+                                const signedTx = await web3.eth.accounts.signTransaction(
+                                    {
+                                        to: stakeLandContract.options.address,
+                                        data,
+                                        gas,
+                                        gasPrice,
+                                        nonce,
+                                        chainId,
+                                    },
+                                    privateKey,
                                 );
+
+                                await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
                             } catch (error) {
                                 // sendError(
                                 //     JSON.stringify({ error, claimHeroDto }),
                                 // );
-                                throw new HttpException(
-                                    error,
-                                    HttpStatus.INTERNAL_SERVER_ERROR,
-                                );
+                                throw new HttpException(error, HttpStatus.INTERNAL_SERVER_ERROR);
                             }
                         } catch (error) {
                             // sendError(JSON.stringify({ error, claimHeroDto }));
-                            throw new HttpException(
-                                error,
-                                HttpStatus.INTERNAL_SERVER_ERROR,
-                            );
+                            throw new HttpException(error, HttpStatus.INTERNAL_SERVER_ERROR);
                         }
-    
+
                         transactionDb.redeemed = true;
-                        await this.transactionsRepository.save(
-                            transactionDb,
-                        );
-                        claimLandDto.lands.map( async land => {
+                        await this.transactionsRepository.save(transactionDb);
+                        claimLandDto.lands.map(async (land) => {
                             const landDB = await this.landsRepository.findOne({
                                 land_id: land.landId,
                                 collection: land.collection,
-                            })
-                            landDB.lastClaim = new Date().getTime().toString(); 
+                            });
+                            landDB.lastClaim = new Date().getTime().toString();
                             this.landsRepository.save(landDB);
-                        })
+                        });
                     } catch (error) {
                         // sendError(JSON.stringify({ error, claimHeroDto }));
-                        throw new HttpException(
-                            error,
-                            HttpStatus.INTERNAL_SERVER_ERROR,
-                        );
+                        throw new HttpException(error, HttpStatus.INTERNAL_SERVER_ERROR);
                     }
                 };
-    
+
                 await tryMintResources();
-    
+
                 return {
                     resourcesToClaim,
                     tx,
@@ -467,21 +422,16 @@ export class LandService {
                     percentageDifference,
                     redeemed: transactionDb.redeemed,
                 };
-            }catch{
-                throw new HttpException(
-                    "Transaction could'nt be saved",
-                    HttpStatus.BAD_REQUEST,
-                );
+            } catch {
+                throw new HttpException("Transaction could'nt be saved", HttpStatus.BAD_REQUEST);
             }
-
-            
         } catch (error) {
             throw error;
         }
     }
 
     async getAccountFromAPI(): Promise<any> {
-        const snowtraceAPIBaseUrl = SNOWTRACE[chain]
+        const snowtraceAPIBaseUrl = SNOWTRACE[chain];
         const response = await firstValueFrom(
             this.httpService.get(
                 `${snowtraceAPIBaseUrl}/api?module=account&action=txlist&address=${process.env.DEPLOYER}&startblock=1&endblock=99999999&sort=desc`,
