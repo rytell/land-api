@@ -71,8 +71,4 @@ export class LandController {
         return await this.landService.levelUp(levelUpDto);
     }
 
-    @Get()
-    test(): string {
-        return this.landService.test();
-    }
 }
