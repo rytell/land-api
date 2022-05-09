@@ -32,9 +32,9 @@ export const WSS_URL = {
 
 export const STAKING_LAND = {
     // [ChainId.FUJI]: '0x1C318d19A098202858B44B200c63033d47B92206',
-    // [ChainId.FUJI]: '0x733ecAa6611513BfaDf03E1E156Cf7D991c281F0', // new version
-    [ChainId.FUJI]: '0xC9f30592480b3FB2B7aeAa02bb99bA09E2865107', // with lastLeveledUp
-    [ChainId.AVALANCHE]: '0x0000000000000000000000000000000000000000',
+    // [ChainId.FUJI]: '0x733ecAa6611513BfaDf03E1E156Cf7D991c281F0', // better version
+    [ChainId.FUJI]: '0xC9f30592480b3FB2B7aeAa02bb99bA09E2865107', // with lastLeveledUp version
+    [ChainId.AVALANCHE]: '0xAE0409727A3A8D2FCA564E183FDeD971288b3125',
 };
 
 export const LAND_COLLECTIONS = [
@@ -59,19 +59,19 @@ export const RADI: { [chainId in ChainId]: Token } = {
 
 export const WOOD = {
     [ChainId.FUJI]: new Token(ChainId.FUJI, '0xd1d80Ddcc05043EDE8eC1585C1cA3d7EBc61Ae5E', 18, 'RWPLK', 'Rytell Wooden Plank'),
-    [ChainId.AVALANCHE]: new Token(ChainId.AVALANCHE, '0x0000000000000000000000000000000000000000', 18, 'RWPLK', 'Rytell Wooden Plank'),
+    [ChainId.AVALANCHE]: new Token(ChainId.AVALANCHE, '0x4c0E28fFedBFc761a7be92596ff8c7940188b684', 18, 'RWPLK', 'Rytell Wooden Plank'),
 };
 export const WHEAT = {
     [ChainId.FUJI]: new Token(ChainId.FUJI, '0xFb0c48CfB87939afD8642E615B4e5acaeADe9AE8', 18, 'RWHT', 'Rytell Wheat'),
-    [ChainId.AVALANCHE]: new Token(ChainId.AVALANCHE, '0x0000000000000000000000000000000000000000', 18, 'RWHT', 'Rytell Wheat'),
+    [ChainId.AVALANCHE]: new Token(ChainId.AVALANCHE, '0xD73d3E047266EaB2309F9929AafE8Fc3e7cEC072', 18, 'RWHT', 'Rytell Wheat'),
 };
 export const STONE = {
     [ChainId.FUJI]: new Token(ChainId.FUJI, '0xe3228aD79B201c1e32318ed9dE51b53cDB055237', 18, 'RSBLK', 'Rytell Stone Block'),
-    [ChainId.AVALANCHE]: new Token(ChainId.AVALANCHE, '0x0000000000000000000000000000000000000000', 18, 'RSBLK', 'Rytell Stone Block'),
+    [ChainId.AVALANCHE]: new Token(ChainId.AVALANCHE, '0xdcA5a32D4528378e5B9a553a2A0bcFc14B9c2D1e', 18, 'RSBLK', 'Rytell Stone Block'),
 };
 export const IRON = {
     [ChainId.FUJI]: new Token(ChainId.FUJI, '0xbF23C85C5890892e3c9D94aC61fD4c1573CbeD57', 18, 'RIORE', 'Rytell Iron Ore'),
-    [ChainId.AVALANCHE]: new Token(ChainId.AVALANCHE, '0x0000000000000000000000000000000000000000', 18, 'RIORE', 'Rytell Iron Ore'),
+    [ChainId.AVALANCHE]: new Token(ChainId.AVALANCHE, '0x3D05755C9Abad73951594D37891982b9c917BDAF', 18, 'RIORE', 'Rytell Iron Ore'),
 };
 
 export const SNOWTRACE = {
