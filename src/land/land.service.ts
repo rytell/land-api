@@ -581,7 +581,7 @@ export class LandService {
             } else {
                 levelUpTransaction = {
                     ...baseTxObject,
-                    type: 'LEVEL_UP',
+                    transactionType: 'levelup',
                 };
             }
             try {
@@ -603,11 +603,10 @@ export class LandService {
                 const tryLevelUp = async () => {
                     const stakeLandsContract = await this.getStakeLandContract();
                     const utils = Web3.utils;
-                    const address = process.env.GAME_EMISSIONS_FUND_ADDRESS;
+                    const address = process.env.DEPLOYER;
 
                     const resourceInWei = (amount: number) => utils.toWei(amount.toString());
                     const chain = process.env.CHAIN || 43113;
-
                     try {
                         const levelUpTx = stakeLandsContract.methods.levelHeroLandsUp(
                             [IRON[chain].address, STONE[chain].address, WOOD[chain].address, WHEAT[chain].address, RADI[chain].address],
@@ -618,6 +617,9 @@ export class LandService {
                                 resourceInWei(levelUpDto.onlyRadi ? 0 : estimation.neededWheat),
                                 resourceInWei(levelUpDto.onlyRadi ? estimation.onlyRadi : estimation.neededRadi),
                             ],
+                            levelUpDto.heroNumber,
+                            levelUpDto.owner,
+                            levelUpDto.owner,
                         );
                         try {
                             const gas = await levelUpTx.estimateGas({
@@ -628,7 +630,7 @@ export class LandService {
                                 const data = levelUpTx.encodeABI();
                                 const nonce = await web3.eth.getTransactionCount(address);
                                 const chainId = await web3.eth.net.getId();
-                                const privateKey = process.env.PRIVATE_KEY;
+                                const privateKey = process.env.DEPLOYER_PK;
                                 const signedTx = await web3.eth.accounts.signTransaction(
                                     {
                                         to: stakeLandsContract.options.address,
@@ -671,11 +673,11 @@ export class LandService {
                     redeemed: transactionDb.redeemed,
                 };
             } catch (error) {
-                throw new HttpException("Transaction could'nt be saved", HttpStatus.BAD_REQUEST);
+                throw new HttpException(error, HttpStatus.BAD_REQUEST);
             }
         } catch (error) {
             // sendError(JSON.stringify({ error, claimHeroDto }));
-            throw new HttpException('Unexpected', HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new HttpException(error, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 

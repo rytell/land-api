@@ -66,7 +66,7 @@ export class LandController {
     }
 
     @Post('level-up')
-    async getMintEstimation(@Body() body): Promise<any> {
+    async levelUp(@Body() body): Promise<any> {
         const levelUpDto: LevelUpDto = body.levelUpDto;
         return await this.landService.levelUp(levelUpDto);
     }
