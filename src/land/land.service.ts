@@ -822,4 +822,16 @@ export class LandService {
             });
         return estimation * 1.2;
     }
+
+    async getLandBasicEmission(landId: number, collectionId: string, level: number): Promise<any>{
+        const landAPI = await this.getLandMetadata(landId, collectionId)
+        const firstResource = this.cleanLandResource(landAPI.resource_a);
+        const secondResource = this.cleanLandResource(landAPI.resource_b);
+        const firstResourceBasicEmission = this.getBasicEmission(firstResource, level);
+        const secondResourceBasicEmission = this.getBasicEmission(secondResource, level);
+        const response = {}
+        response[firstResource] = firstResourceBasicEmission
+        response[secondResource] = secondResourceBasicEmission
+        return response
+    }
 }

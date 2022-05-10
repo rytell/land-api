@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpException, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpException, Param, Post, Query } from '@nestjs/common';
 import { LandService } from './land.service';
 import { Land } from './land.entity';
 import { CreateLandDto } from './dto/create-land';
@@ -69,6 +69,11 @@ export class LandController {
     async levelUp(@Body() body): Promise<any> {
         const levelUpDto: LevelUpDto = body.levelUpDto;
         return await this.landService.levelUp(levelUpDto);
+    }
+
+    @Get('basic-emission/:landId/:collectionId/:level')
+    getLandBasicEmission(@Param() params): any {
+        return this.landService.getLandBasicEmission(params.landId, params.collectionId, params.level)
     }
 
 }
