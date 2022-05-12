@@ -15,18 +15,16 @@ import { LevelUpDto } from './dto/level-up';
 import { GeneralTransaction } from './general-transaction.entity';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Web3 = require('web3');
-import BN from 'bn.js';
-
 interface LevelUpEstimation {
     neededIron: number;
     neededRadi: number;
-    onlyRadi: number;
     neededStone: number;
     neededWheat: number;
     neededWood: number;
     estimatedGas: number;
-    avaxProcessingFee: number; // hardcoded 0.1 AVAX for testing purposes
+    avaxProcessingFee: number;
     coolDownHasPassed: boolean;
+    neededRadiToSkipCoolDown: number;
 }
 
 const chain = process.env.CHAIN || 43113;
@@ -449,7 +447,6 @@ export class LandService {
         let neededWood = 0;
         let neededWheat = 0;
         let neededRadi = 0;
-        let onlyRadi = 0;
         let coolDownHasPassed = true;
         await Promise.all(
             simulateLevelUpDto.lands.map(async (land) => {
@@ -482,8 +479,6 @@ export class LandService {
                         case 'wheat':
                             neededWheat += heroFirstEmission * nextLevel;
                             break;
-                        case 'radi':
-                            neededRadi += heroFirstEmission * nextLevel;
                         default:
                             break;
                     }
@@ -501,13 +496,11 @@ export class LandService {
                         case 'wheat':
                             neededWheat += heroSecondEmission * nextLevel;
                             break;
-                        case 'radi':
-                            neededRadi += heroSecondEmission * nextLevel;
                         default:
                             break;
                     }
 
-                    onlyRadi += 1000 * (+heroLand.level + 1);
+                    neededRadi += 1000 * (+heroLand.level + 1);
                 }
             }),
         );
@@ -518,7 +511,7 @@ export class LandService {
             hero: simulateLevelUpDto.heroNumber,
             owner: simulateLevelUpDto.owner,
             whoPays: process.env.DEPLOYER, // in purpose of letting anyone estimate how much is needed to level up
-            amounts: [neededIron, neededStone, neededWheat, neededWood, onlyRadi],
+            amounts: [neededIron, neededStone, neededWheat, neededWood, neededRadi],
             resources: [IRON[chain].address, STONE[chain].address, WHEAT[chain].address, WOOD[chain].address, RADI[chain].address],
         });
 
@@ -530,10 +523,10 @@ export class LandService {
             neededStone,
             neededWheat,
             neededWood,
-            onlyRadi,
             estimatedGas,
             avaxProcessingFee,
             coolDownHasPassed,
+            neededRadiToSkipCoolDown: neededRadi * 2,
         };
     }
 
@@ -567,11 +560,11 @@ export class LandService {
                 value: tx.value,
                 redeemed: false,
                 character: levelUpDto.heroNumber,
-                radiValue: levelUpDto.onlyRadi ? estimation.onlyRadi : estimation.neededRadi,
-                ironValue: levelUpDto.onlyRadi ? 0 : estimation.neededIron,
-                stoneValue: levelUpDto.onlyRadi ? 0 : estimation.neededStone,
-                woodValue: levelUpDto.onlyRadi ? 0 : estimation.neededWood,
-                wheatValue: levelUpDto.onlyRadi ? 0 : estimation.neededWheat,
+                radiValue: estimation.neededRadi,
+                ironValue: estimation.neededIron,
+                stoneValue: estimation.neededStone,
+                woodValue: estimation.neededWood,
+                wheatValue: estimation.neededWheat,
             };
             if (levelUpTransactionDb) {
                 levelUpTransaction = {
@@ -611,11 +604,11 @@ export class LandService {
                         const levelUpTx = stakeLandsContract.methods.levelHeroLandsUp(
                             [IRON[chain].address, STONE[chain].address, WOOD[chain].address, WHEAT[chain].address, RADI[chain].address],
                             [
-                                resourceInWei(levelUpDto.onlyRadi ? 0 : estimation.neededIron),
-                                resourceInWei(levelUpDto.onlyRadi ? 0 : estimation.neededStone),
-                                resourceInWei(levelUpDto.onlyRadi ? 0 : estimation.neededWood),
-                                resourceInWei(levelUpDto.onlyRadi ? 0 : estimation.neededWheat),
-                                resourceInWei(levelUpDto.onlyRadi ? estimation.onlyRadi : estimation.neededRadi),
+                                resourceInWei(estimation.neededIron),
+                                resourceInWei(estimation.neededStone),
+                                resourceInWei(estimation.neededWood),
+                                resourceInWei(estimation.neededWheat),
+                                resourceInWei(estimation.neededRadi),
                             ],
                             levelUpDto.heroNumber,
                             levelUpDto.owner,
@@ -823,15 +816,15 @@ export class LandService {
         return estimation * 1.2;
     }
 
-    async getLandBasicEmission(landId: number, collectionId: string, level: number): Promise<any>{
-        const landAPI = await this.getLandMetadata(landId, collectionId)
+    async getLandBasicEmission(landId: number, collectionId: string, level: number): Promise<any> {
+        const landAPI = await this.getLandMetadata(landId, collectionId);
         const firstResource = this.cleanLandResource(landAPI.resource_a);
         const secondResource = this.cleanLandResource(landAPI.resource_b);
         const firstResourceBasicEmission = this.getBasicEmission(firstResource, level);
         const secondResourceBasicEmission = this.getBasicEmission(secondResource, level);
-        const response = {}
-        response[firstResource] = firstResourceBasicEmission
-        response[secondResource] = secondResourceBasicEmission
-        return response
+        const response = {};
+        response[firstResource] = firstResourceBasicEmission;
+        response[secondResource] = secondResourceBasicEmission;
+        return response;
     }
 }
