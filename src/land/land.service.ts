@@ -330,7 +330,7 @@ export class LandService {
                 }
 
                 const tryMintResources = async () => {
-                    const stakeLandContract = await this.getStakeLandContract();
+                    const stakeLandContract = await this.getStakeLandContract(claimLandDto.v2);
                     const utils = Web3.utils;
 
                     const address = process.env.DEPLOYER; // INSUFFICIENT ALLOWANCE
@@ -599,7 +599,7 @@ export class LandService {
                 }
 
                 const tryLevelUp = async () => {
-                    const stakeLandsContract = await this.getStakeLandContract();
+                    const stakeLandsContract = await this.getStakeLandContract(levelUpDto.v2);
                     const utils = Web3.utils;
                     const address = process.env.DEPLOYER;
 
