@@ -4,4 +4,5 @@ export class SimulateLevelUpDto {
     lands: Land[];
     heroNumber: number;
     owner: string;
+    v2: boolean;
 }

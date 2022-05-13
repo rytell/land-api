@@ -37,6 +37,12 @@ export const STAKING_LAND = {
     [ChainId.AVALANCHE]: '0xAE0409727A3A8D2FCA564E183FDeD971288b3125',
 };
 
+// solves a critical bug from v1
+export const STAKING_LAND_V2 = {
+    [ChainId.FUJI]: '0xCEc841fA9c9BeFD5A861571EE5E55168672EDf24',
+    [ChainId.AVALANCHE]: '0xd19f43e483A67D70888DA1547c2375732b4B5879',
+};
+
 export const LAND_COLLECTIONS = [
     {
         // CLAIMABLE

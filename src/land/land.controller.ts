@@ -36,6 +36,7 @@ export class LandController {
         return this.landService.getHeroLands({
             hero: query.hero,
             owner: query.owner,
+            v2: query.v2,
         });
     }
 
@@ -46,6 +47,7 @@ export class LandController {
         }
         return this.landService.getStakedHeros({
             owner: query.owner,
+            v2: query.v2,
         });
     }
 
@@ -56,6 +58,7 @@ export class LandController {
         }
         return this.landService.getStakedLands({
             owner: query.owner,
+            v2: query.v2,
         });
     }
 
@@ -73,7 +76,6 @@ export class LandController {
 
     @Get('basic-emission/:landId/:collectionId/:level')
     getLandBasicEmission(@Param() params): any {
-        return this.landService.getLandBasicEmission(params.landId, params.collectionId, params.level)
+        return this.landService.getLandBasicEmission(params.landId, params.collectionId, params.level);
     }
-
 }
