@@ -8,4 +8,5 @@ export class ClaimLandDto {
     heroNumber: number;
     owner: string;
     transactionHash?: string = '';
+    v2: boolean;
 }

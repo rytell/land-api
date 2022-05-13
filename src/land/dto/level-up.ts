@@ -5,4 +5,5 @@ export class LevelUpDto {
     heroNumber: number;
     owner: string;
     transactionHash: string;
+    v2: boolean;
 }

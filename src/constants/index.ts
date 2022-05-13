@@ -31,10 +31,14 @@ export const WSS_URL = {
 };
 
 export const STAKING_LAND = {
-    // [ChainId.FUJI]: '0x1C318d19A098202858B44B200c63033d47B92206',
-    // [ChainId.FUJI]: '0x733ecAa6611513BfaDf03E1E156Cf7D991c281F0', // better version
-    [ChainId.FUJI]: '0xC9f30592480b3FB2B7aeAa02bb99bA09E2865107', // with lastLeveledUp version
+    [ChainId.FUJI]: '0xC9f30592480b3FB2B7aeAa02bb99bA09E2865107',
     [ChainId.AVALANCHE]: '0xAE0409727A3A8D2FCA564E183FDeD971288b3125',
+};
+
+// solves a critical bug from v1
+export const STAKING_LAND_V2 = {
+    [ChainId.FUJI]: '0xCEc841fA9c9BeFD5A861571EE5E55168672EDf24',
+    [ChainId.AVALANCHE]: '0xd19f43e483A67D70888DA1547c2375732b4B5879',
 };
 
 export const LAND_COLLECTIONS = [
