@@ -123,7 +123,7 @@ export class LandService {
                     }
                     try {
                         const lastStaked = heroLand.lastStaked + '000';
-                        const currentDate = lastStaked > landDB.lastClaim ? lastStaked : landDB.lastClaim;
+                        const currentDate = +lastStaked > +landDB.lastClaim ? +lastStaked : +landDB.lastClaim;
                         const daysDifference = this.daysDifference(new Date(), new Date(+currentDate));
                         const firstResource = this.cleanLandResource(landDB.resource_a);
                         const secondResource = this.cleanLandResource(landDB.resource_b);
@@ -356,7 +356,7 @@ export class LandService {
                                 const data = mintTransaction.encodeABI();
                                 const nonce = await web3.eth.getTransactionCount(address);
                                 const chainId = await web3.eth.net.getId();
-                                const privateKey = process.env.DEPLOYER_PK; // TODO key deployer
+                                const privateKey = process.env.DEPLOYER_PK;
                                 const signedTx = await web3.eth.accounts.signTransaction(
                                     {
                                         to: stakeLandContract.options.address,
@@ -383,14 +383,16 @@ export class LandService {
 
                         transactionDb.redeemed = true;
                         await this.transactionsRepository.save(transactionDb);
-                        claimLandDto.lands.map(async (land) => {
-                            const landDB = await this.landsRepository.findOne({
-                                land_id: land.landId,
-                                collection: land.collection,
-                            });
-                            landDB.lastClaim = new Date().getTime().toString();
-                            this.landsRepository.save(landDB);
-                        });
+                        await Promise.all(
+                            claimLandDto.lands.map(async (land) => {
+                                const landDB = await this.landsRepository.findOne({
+                                    land_id: land.landId,
+                                    collection: land.collection,
+                                });
+                                landDB.lastClaim = new Date().getTime().toString();
+                                await this.landsRepository.save(landDB);
+                            }),
+                        );
                     } catch (error) {
                         // sendError(JSON.stringify({ error, claimHeroDto }));
                         throw new HttpException(error, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -653,8 +655,6 @@ export class LandService {
 
                         transactionDb.redeemed = true;
                         await this.transactionsRepository.save(transactionDb);
-
-                        await this.markLastClaimOnLands(levelUpDto.lands);
                     } catch (error) {
                         // sendError(JSON.stringify({ error, claimHeroDto }));
                         throw new HttpException(error, HttpStatus.INTERNAL_SERVER_ERROR);
