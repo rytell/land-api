@@ -124,6 +124,9 @@ export class LandService {
                     try {
                         const lastStaked = heroLand.lastStaked + '000';
                         const currentDate = +lastStaked > +landDB.lastClaim ? +lastStaked : +landDB.lastClaim;
+                        if (!currentDate) {
+                            throw new HttpException('Bad date comparison', 400);
+                        }
                         const daysDifference = this.daysDifference(new Date(), new Date(+currentDate));
                         const firstResource = this.cleanLandResource(landDB.resource_a);
                         const secondResource = this.cleanLandResource(landDB.resource_b);

@@ -37,3 +37,4 @@ lerna-debug.log*
 # secrets
 .env
 /.env
+.env.template_local
