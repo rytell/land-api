@@ -41,6 +41,12 @@ export const STAKING_LAND_V2 = {
     [ChainId.AVALANCHE]: '0xd19f43e483A67D70888DA1547c2375732b4B5879',
 };
 
+// let users migrate from v1 and v2
+export const STAKING_LAND_V3 = {
+    [ChainId.FUJI]: '0xA49117a4815fb484934B1A9Dbbb9F839515E79f4',
+    [ChainId.AVALANCHE]: '0x0000000000000000000000000000000000000000',
+};
+
 export const LAND_COLLECTIONS = [
     {
         // CLAIMABLE
