@@ -8,9 +8,10 @@ import { CreateLandDto } from './dto/create-land';
 import { Land } from './land.entity';
 import { Land as LandDto } from './dto/claim-land';
 import { ClaimLandDto } from './dto/claim-land';
-import { IRON, LandContract, RADI, RPC_URL, SNOWTRACE, STAKING_LAND, STONE, WHEAT, WOOD, STAKING_LAND_V2 } from 'src/constants';
+import { IRON, LandContract, RADI, RPC_URL, SNOWTRACE, STAKING_LAND, STONE, WHEAT, WOOD, STAKING_LAND_V2, STAKING_LAND_HASH } from 'src/constants';
 import * as stakeLandAbi from '../constants/abis/stakeLands.json';
 import * as stakeLandAbiV2 from '../constants/abis/stakingLandsV2.json';
+import * as stakeLandAbiV3 from '../constants/abis/stakingLandsV3.json';
 import { SimulateLevelUpDto } from './dto/simulate-level-up';
 import { LevelUpDto } from './dto/level-up';
 import { GeneralTransaction } from './general-transaction.entity';
@@ -99,6 +100,7 @@ export class LandService {
             owner: simulateClaimDto.owner,
             hero: +simulateClaimDto.heroNumber,
             v2: simulateClaimDto.v2,
+            version: simulateClaimDto.version
         });
         let accumulatedIron = 0;
         let accumulatedStone = 0;
@@ -196,6 +198,7 @@ export class LandService {
             amounts: [accumulatedIron, accumulatedStone, accumulatedWheat, accumulatedWood, accumulatedRadi],
             resources: [IRON[chain].address, STONE[chain].address, WHEAT[chain].address, WOOD[chain].address, RADI[chain].address],
             v2: simulateClaimDto.v2,
+            version: simulateClaimDto.version,
         });
 
         const avaxProcessingFee = await this.getAvaxFeeFromGasUnits(estimatedGas);
@@ -333,7 +336,7 @@ export class LandService {
                 }
 
                 const tryMintResources = async () => {
-                    const stakeLandContract = await this.getStakeLandContract(claimLandDto.v2);
+                    const stakeLandContract = await this.getStakeLandContract(claimLandDto.v2, claimLandDto.version);
                     const utils = Web3.utils;
 
                     const address = process.env.DEPLOYER; // INSUFFICIENT ALLOWANCE
@@ -450,6 +453,7 @@ export class LandService {
             owner: simulateLevelUpDto.owner,
             hero: simulateLevelUpDto.heroNumber,
             v2: simulateLevelUpDto.v2,
+            version: simulateLevelUpDto.version,
         });
         let neededIron = 0;
         let neededStone = 0;
@@ -523,6 +527,7 @@ export class LandService {
             amounts: [neededIron, neededStone, neededWheat, neededWood, neededRadi],
             resources: [IRON[chain].address, STONE[chain].address, WHEAT[chain].address, WOOD[chain].address, RADI[chain].address],
             v2: simulateLevelUpDto.v2,
+            version: simulateLevelUpDto.version
         });
 
         const avaxProcessingFee = await this.getAvaxFeeFromGasUnits(estimatedGas);
@@ -604,7 +609,7 @@ export class LandService {
                 }
 
                 const tryLevelUp = async () => {
-                    const stakeLandsContract = await this.getStakeLandContract(levelUpDto.v2);
+                    const stakeLandsContract = await this.getStakeLandContract(levelUpDto.v2, levelUpDto.version);
                     const utils = Web3.utils;
                     const address = process.env.DEPLOYER;
 
@@ -699,13 +704,31 @@ export class LandService {
         );
     }
 
-    async getStakeLandContract(v2: boolean) {
+    async getStakeLandContract(v2: boolean, version = "V1") {
+        version = v2 ? "V2" : version;
         const web3 = new Web3(new Web3.providers.HttpProvider(RPC_URL[process.env.CHAIN]));
+        const landAbi = this.getStakeLandAbi(version);
         const stakeLandsContract = new web3.eth.Contract(
-            v2 ? stakeLandAbiV2 : stakeLandAbi,
-            v2 ? STAKING_LAND_V2[process.env.CHAIN || 43113] : STAKING_LAND[process.env.CHAIN || 43113],
+            landAbi,
+            STAKING_LAND_HASH[version][process.env.CHAIN || 43113],
         );
         return stakeLandsContract;
+    }
+
+    getStakeLandAbi(version: string){
+        switch (version) {
+            case "V3":
+                return stakeLandAbiV3;
+            
+            case "V2":
+                return stakeLandAbiV2;
+            
+            case "V1":
+                return stakeLandAbi;
+        
+            default:
+                throw new Error("Version not found");
+        }
     }
 
     async getAvaxFeeFromGasUnits(gasUnits: number) {
@@ -727,8 +750,8 @@ export class LandService {
         return +basicEmissions[resource][level - 1];
     }
 
-    async getHeroLands({ owner, hero, v2 }: { owner: string; hero: number; v2: boolean }): Promise<LandContract[]> {
-        const stakeLandsContract = await this.getStakeLandContract(v2);
+    async getHeroLands({ owner, hero, v2, version }: { owner: string; hero: number; v2: boolean; version: string }): Promise<LandContract[]> {
+        const stakeLandsContract = await this.getStakeLandContract(v2, version);
         const lands = [];
         let index = 0;
         while (true) {
@@ -745,8 +768,8 @@ export class LandService {
         return lands;
     }
 
-    async getStakedHeros({ owner, v2 }: { owner: string; v2: boolean }): Promise<any> {
-        const stakeLandsContract = await this.getStakeLandContract(v2);
+    async getStakedHeros({ owner, v2, version }: { owner: string; v2: boolean; version: string }): Promise<any> {
+        const stakeLandsContract = await this.getStakeLandContract(v2, version);
         const heros = [];
         let index = 0;
         while (true) {
@@ -764,8 +787,8 @@ export class LandService {
         return heros;
     }
 
-    async getStakedLands({ owner, v2 }: { owner: string; v2: boolean }): Promise<any> {
-        const stakeLandsContract = await this.getStakeLandContract(v2);
+    async getStakedLands({ owner, v2, version }: { owner: string; v2: boolean; version: string }): Promise<any> {
+        const stakeLandsContract = await this.getStakeLandContract(v2, version);
         const heros = [];
         let index = 0;
         while (true) {
@@ -783,8 +806,8 @@ export class LandService {
         return heros;
     }
 
-    async getMintResourceEstimation({ to, amounts, resources, v2 }: { to: string; amounts: number[]; resources: string[]; v2: boolean }) {
-        const stakeLandContract = await this.getStakeLandContract(v2);
+    async getMintResourceEstimation({ to, amounts, resources, v2, version }: { to: string; amounts: number[]; resources: string[]; v2: boolean; version: string }) {
+        const stakeLandContract = await this.getStakeLandContract(v2, version);
         const utils = Web3.utils;
         const estimation = await stakeLandContract.methods
             .mintResources(
@@ -805,6 +828,7 @@ export class LandService {
         whoPays,
         owner,
         v2,
+        version,
     }: {
         amounts: number[];
         resources: string[];
@@ -812,8 +836,9 @@ export class LandService {
         whoPays: string;
         owner: string;
         v2: boolean;
+        version: string;
     }) {
-        const stakeLandContract = await this.getStakeLandContract(v2);
+        const stakeLandContract = await this.getStakeLandContract(v2, version);
         const utils = Web3.utils;
         const estimation = await stakeLandContract.methods
             .levelHeroLandsUp(

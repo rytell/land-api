@@ -37,6 +37,7 @@ export class LandController {
             hero: query.hero,
             owner: query.owner,
             v2: query.v2,
+            version: query.version ? query.version : "V3",
         });
     }
 
@@ -48,6 +49,7 @@ export class LandController {
         return this.landService.getStakedHeros({
             owner: query.owner,
             v2: query.v2,
+            version: query.version
         });
     }
 
@@ -59,6 +61,7 @@ export class LandController {
         return this.landService.getStakedLands({
             owner: query.owner,
             v2: query.v2,
+            version: query.version,
         });
     }
 

@@ -4,5 +4,6 @@ export class SimulateLevelUpDto {
     lands: Land[];
     heroNumber: number;
     owner: string;
-    v2: boolean;
+    v2: boolean; //TODO: Delete this property when the implementation of the versions is completed.
+    version: string = "V3";
 }
