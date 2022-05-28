@@ -8,7 +8,7 @@ import { CreateLandDto } from './dto/create-land';
 import { Land } from './land.entity';
 import { Land as LandDto } from './dto/claim-land';
 import { ClaimLandDto } from './dto/claim-land';
-import { IRON, LandContract, RADI, RPC_URL, SNOWTRACE, STAKING_LAND, STONE, WHEAT, WOOD, STAKING_LAND_V2, STAKING_LAND_HASH } from 'src/constants';
+import { IRON, LandContract, RADI, RPC_URL, SNOWTRACE, STONE, WHEAT, WOOD, STAKING_LAND_HASH, blackListLands } from 'src/constants';
 import * as stakeLandAbi from '../constants/abis/stakeLands.json';
 import * as stakeLandAbiV2 from '../constants/abis/stakingLandsV2.json';
 import * as stakeLandAbiV3 from '../constants/abis/stakingLandsV3.json';
@@ -109,6 +109,7 @@ export class LandService {
         let accumulatedRadi = 0;
         await Promise.all(
             simulateClaimDto.lands.map(async (land) => {
+                const isBlackListed = blackListLands.some(blackLand => blackLand.id === land.landId && blackLand.collection === land.collection);
                 const heroLand = heroLands.find((_heroLand) => _heroLand.landId.toString() === land.landId.toString() && _heroLand.staked);
                 if (heroLand) {
                     let landDB = await this.landsRepository.findOne({
@@ -147,19 +148,19 @@ export class LandService {
 
                         switch (firstResource) {
                             case 'iron':
-                                accumulatedIron += heroFirstEmission * daysDifference;
+                                accumulatedIron += isBlackListed ? 0 : heroFirstEmission * daysDifference;
                                 break;
                             case 'stone':
-                                accumulatedStone += heroFirstEmission * daysDifference;
+                                accumulatedStone += isBlackListed ? 0 : heroFirstEmission * daysDifference;
                                 break;
                             case 'wood':
-                                accumulatedWood += heroFirstEmission * daysDifference;
+                                accumulatedWood += isBlackListed ? 0 : heroFirstEmission * daysDifference;
                                 break;
                             case 'wheat':
-                                accumulatedWheat += heroFirstEmission * daysDifference;
+                                accumulatedWheat += isBlackListed ? 0 : heroFirstEmission * daysDifference;
                                 break;
                             case 'radi':
-                                accumulatedRadi += heroFirstEmission * daysDifference;
+                                accumulatedRadi += isBlackListed ? 0 : heroFirstEmission * daysDifference;
                                 break;
                             default:
                                 break;
@@ -167,19 +168,19 @@ export class LandService {
 
                         switch (secondResource) {
                             case 'iron':
-                                accumulatedIron += heroSecondEmission * daysDifference;
+                                accumulatedIron += isBlackListed ? 0 : heroSecondEmission * daysDifference;
                                 break;
                             case 'stone':
-                                accumulatedStone += heroSecondEmission * daysDifference;
+                                accumulatedStone += isBlackListed ? 0 : heroSecondEmission * daysDifference;
                                 break;
                             case 'wood':
-                                accumulatedWood += heroSecondEmission * daysDifference;
+                                accumulatedWood += isBlackListed ? 0 : heroSecondEmission * daysDifference;
                                 break;
                             case 'wheat':
-                                accumulatedWheat += heroSecondEmission * daysDifference;
+                                accumulatedWheat += isBlackListed ? 0 : heroSecondEmission * daysDifference;
                                 break;
                             case 'radi':
-                                accumulatedRadi += heroSecondEmission * daysDifference;
+                                accumulatedRadi += isBlackListed ? 0 : heroSecondEmission * daysDifference;
                                 break;
                             default:
                                 break;
