@@ -103,3 +103,90 @@ export const SNOWTRACE = {
     [ChainId.FUJI]: 'https://api-testnet.snowtrace.io',
     [ChainId.AVALANCHE]: 'https://api.snowtrace.io',
 };
+
+export const blackListLands = [
+    {
+        id: 1069,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 2912,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 5644,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 4097,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 5968,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 5702,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 5731,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 9186,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 6474,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 1850,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 2424,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 1077,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 2079,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 2117,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 7512,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 7594,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 7970,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 8167,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 9070,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 1403,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+    {
+        id: 2078,
+        collection: '0xce0918fFaac97e468af737B64cAD444B6caA024b'
+    },
+]
