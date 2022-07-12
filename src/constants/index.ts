@@ -21,13 +21,17 @@ export interface LandContract {
 }
 
 export const RPC_URL = {
-    [ChainId.FUJI]: 'https://speedy-nodes-nyc.moralis.io/cae092a65a63fc62e91d139d/avalanche/testnet',
-    [ChainId.AVALANCHE]: 'https://speedy-nodes-nyc.moralis.io/cae092a65a63fc62e91d139d/avalanche/mainnet',
+    [ChainId.FUJI]:
+        'https://api.avax-test.network/ext/bc/C/rpc',
+    [ChainId.AVALANCHE]:
+        'https://api.avax.network/ext/bc/C/rpc',
 };
 
 export const WSS_URL = {
-    [ChainId.FUJI]: 'wss://speedy-nodes-nyc.moralis.io/cae092a65a63fc62e91d139d/avalanche/testnet/ws',
-    [ChainId.AVALANCHE]: 'wss://speedy-nodes-nyc.moralis.io/cae092a65a63fc62e91d139d/avalanche/mainnet/ws',
+    [ChainId.FUJI]:
+        'wss://api.avax-test.network/ext/bc/C/ws',
+    [ChainId.AVALANCHE]:
+        'wss://api.avax.network/ext/bc/C/ws',
 };
 
 export const STAKING_LAND = {
